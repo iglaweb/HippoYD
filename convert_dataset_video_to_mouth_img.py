@@ -9,14 +9,17 @@ from pandas import np
 from scipy.spatial import distance as dist
 
 # define one constants, for mouth aspect ratio to indicate open mouth
+from yawn_train import download_utils
+
 MOUTH_AR_THRESH = 0.6
-MOUTH_FOLDER = "mouth_state"
+MOUTH_FOLDER = "./mouth_state"
 MOUTH_OPENED_FOLDER = f"{MOUTH_FOLDER}/opened"
 MOUTH_CLOSED_FOLDER = f"{MOUTH_FOLDER}/closed"
 
-# https://ieee-dataport.org/open-access/yawdd-yawning-detection-dataset#files
-YAWNDD_DATASET_FOLDER = "/Users/igla/Downloads/YawDD dataset"
+TEMP_FOLDER = "./temp"
 
+# https://ieee-dataport.org/open-access/yawdd-yawning-detection-dataset#files
+YAWDD_DATASET_FOLDER = "/Users/igla/Downloads/YawDD dataset"
 MAX_IMAGE_HEIGHT = 100
 MAX_IMAGE_WIDTH = 100
 
@@ -29,10 +32,13 @@ Path(MOUTH_FOLDER).mkdir(parents=True, exist_ok=True)
 Path(MOUTH_OPENED_FOLDER).mkdir(parents=True, exist_ok=True)
 Path(MOUTH_CLOSED_FOLDER).mkdir(parents=True, exist_ok=True)
 
+dlib_landmarks_file = download_utils.download_and_unpack_dlib_68_landmarks(TEMP_FOLDER)
 # dlib predictor for 68pts, mouth
-predictor = dlib.shape_predictor('../dlib/shape_predictor_68_face_landmarks.dat')
+predictor = dlib.shape_predictor(dlib_landmarks_file)
+
+caffe_weights, caffe_config = download_utils.download_caffe(TEMP_FOLDER)
 # Reads the network model stored in Caffe framework's format.
-face_model = cv2.dnn.readNetFromCaffe('../caffe/deploy.prototxt', '../caffe/weights.caffemodel')
+face_model = cv2.dnn.readNetFromCaffe(caffe_config, caffe_weights)
 
 
 def detect_face(image):
@@ -54,7 +60,7 @@ def detect_face(image):
     return rect_list
 
 
-def mouth_aspect_ratio(mouth):
+def mouth_aspect_ratio(mouth) -> float:
     # compute the euclidean distances between the two sets of
     # vertical mouth landmarks (x, y)-coordinates
     A = dist.euclidean(mouth[2], mouth[10])  # 51, 59
@@ -63,9 +69,6 @@ def mouth_aspect_ratio(mouth):
     # compute the euclidean distance between the horizontal
     # mouth landmark (x, y)-coordinates
     C = dist.euclidean(mouth[0], mouth[6])  # 49, 55
-
-    # print(f'A: {A}, B: {B}, C: {C}')
-
     # compute the mouth aspect ratio
     mar = (A + B) / (2.0 * C)
     return mar
@@ -84,7 +87,7 @@ def resize_img(frame_crop, max_width, max_height):
     return frame_crop
 
 
-def recognize_image(frame, face_rect):
+def recognize_image(frame, face_rect, video_path):
     (start_x, start_y, endX, endY) = face_rect
     start_x = max(start_x, 0)
     start_y = max(start_y, 0)
@@ -122,6 +125,14 @@ def recognize_image(frame, face_rect):
 
     mouth_mar = round(mouth_mar, 2)
 
+    video_name = os.path.basename(video_path)
+    is_video_no_talking = video_name.endswith('-Normal.avi')
+    is_mouth_opened = mouth_mar >= MOUTH_AR_THRESH
+
+    if is_mouth_opened and is_video_no_talking:
+        # some videos may contain opened mouth, skip these situations
+        return
+
     gray_img = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
     gray_img = resize_img(gray_img, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT)
 
@@ -142,7 +153,7 @@ def process_video(video):
     while True:
         _, frame = cap.read()
         if frame is None:
-            print('No images left. Exit')
+            print('No images left. Next video')
             break
 
         if np.shape(frame) == ():
@@ -162,7 +173,7 @@ def process_video(video):
             continue
 
         face_img_counter = face_img_counter + 1
-        recognize_image(frame, face_list[0])
+        recognize_image(frame, face_list[0], video)
 
     video_name = os.path.basename(video)
     print(f"Total images: {total_img_counter}, collected: {face_img_counter} images in video {video_name}")
@@ -172,7 +183,7 @@ def process_video(video):
 
 def process_videos():
     files_count = 0
-    for root, dirs, files in os.walk(YAWNDD_DATASET_FOLDER):
+    for root, dirs, files in os.walk(YAWDD_DATASET_FOLDER):
         for file in files:
             if file.endswith(".avi"):
                 files_count = files_count + 1

@@ -2,9 +2,7 @@
 
 # Overview
 
-This model is a mouth openness detection model.
-
-I provide full training code, data preparation scripts, and a pretrained model.
+This is a mouth openness detection model. Full training code, data preparation scripts, and pretrained models are in the repository.
 
 
 ## How to use the pretrained model
