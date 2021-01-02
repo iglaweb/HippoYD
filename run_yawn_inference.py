@@ -11,6 +11,8 @@ import tensorflow as tf
 from imutils import face_utils
 from tensorflow import keras
 
+from yawn_train import download_utils
+
 assert tf.__version__.startswith('2')
 
 print('TensorFlow version: {}'.format(tf.__version__))
@@ -37,6 +39,7 @@ image_size = (IMAGE_DIMENSION, IMAGE_DIMENSION)
 CONFIDENCE_THRESHOLD = 0.2
 VIDEO_FILE = 0  # '/Users/igla/Downloads/Memorable Monologue- Talking in the Third Person.mp4'
 TEST_DIR = './out_test_mouth/'
+TEMP_FOLDER = "./temp"
 
 # KERAS mouth state recognition model
 model = keras.models.load_model('./out_epoch_30/yawn_model_30.h5')
@@ -47,8 +50,9 @@ try:
 except RuntimeError:
     dlib_predictor = None
 
+caffe_weights, caffe_config = download_utils.download_caffe(TEMP_FOLDER)
 # Reads the network model stored in Caffe framework's format.
-face_model = cv2.dnn.readNetFromCaffe('../caffe/deploy2.prototxt', '../caffe/weights.caffemodel')
+face_model = cv2.dnn.readNetFromCaffe(caffe_config, caffe_weights)
 
 
 def detect_face(image):
@@ -74,12 +78,17 @@ def detect_face(image):
 
 
 def predict_image_data(img_array):
+    start = get_timestamp_ms()
+
     # scale pixel values to [0, 1]
     img_array = img_array.astype(np.float32)
     img_array /= 255.0
     img_array = tf.expand_dims(img_array, axis=0)  # Create batch axis
     model_predictions = model.predict(img_array)
     predicted_confidence = np.max(model_predictions[0])
+
+    diff = get_timestamp_ms() - start
+    print(f'Time elapsed {diff} ms')
 
     is_mouth_opened = True if predicted_confidence >= CONFIDENCE_THRESHOLD else False
     # classes taken from input data
@@ -134,7 +143,7 @@ if __name__ == '__main__':
 
             image_frame = cv2.resize(frame_crop, image_size, cv2.INTER_AREA)
             image_frame = cv2.cvtColor(image_frame, cv2.COLOR_BGR2GRAY)
-            img_expanded = image_frame[:, :, np.newaxis]
+            img_expanded = image_frame[:, :, np.newaxis]  # expand 1 dimension
             prediction = predict_image_data(img_expanded)
             print(prediction)
 

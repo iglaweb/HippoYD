@@ -14,6 +14,26 @@ a tensorflow model (`.tflite`, `.h5` or `saved model`).
 ## Image Dataset
 The model was trained using video dataset [YawDD](https://ieee-dataport.org/open-access/yawdd-yawning-detection-dataset#files).
 
+## Model Inference
+
+<table>
+	<tbody>
+		<tr>
+            <th>Configuration</th>
+            <th>Config</th>
+            <th>Model Type</th>
+            <th>Time (avg)</th>
+            <th>FPS</th>
+		</tr>
+		<tr>
+			<td>Macbook Pro, CPU<br/>2 GHz Quad-Core Intel Core i5</td>
+         <td>CPU</td>
+			<td>Floating</td>
+         <td>40-50 ms</td>
+         <td>20</td>
+		</tr>
+	</tbody>
+</table>
 
 
 ## Requirements
