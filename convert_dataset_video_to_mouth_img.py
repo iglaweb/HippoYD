@@ -10,8 +10,8 @@ from scipy.spatial import distance as dist
 
 # define one constants, for mouth aspect ratio to indicate open mouth
 from yawn_train import download_utils
+from yawn_train.model_config import MOUTH_AR_THRESH, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT
 
-MOUTH_AR_THRESH = 0.6
 MOUTH_FOLDER = "./mouth_state"
 MOUTH_OPENED_FOLDER = f"{MOUTH_FOLDER}/opened"
 MOUTH_CLOSED_FOLDER = f"{MOUTH_FOLDER}/closed"
@@ -20,8 +20,6 @@ TEMP_FOLDER = "./temp"
 
 # https://ieee-dataport.org/open-access/yawdd-yawning-detection-dataset#files
 YAWDD_DATASET_FOLDER = "/Users/igla/Downloads/YawDD dataset"
-MAX_IMAGE_HEIGHT = 100
-MAX_IMAGE_WIDTH = 100
 
 mouth_open_counter = 0
 mouth_close_counter = 0

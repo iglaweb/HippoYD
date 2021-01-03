@@ -11,7 +11,8 @@ import tensorflow as tf
 from imutils import face_utils
 from tensorflow import keras
 
-from yawn_train import download_utils
+from yawn_train import download_utils, inference_utils
+from yawn_train.model_config import MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, IMAGE_PAIR_SIZE
 
 assert tf.__version__.startswith('2')
 
@@ -34,14 +35,12 @@ print("GPU is", "available" if tf.test.is_gpu_available() else "NOT AVAILABLE")
 
 # it runs much slower than float version on CPU
 # https://github.com/tensorflow/tensorflow/issues/21698#issuecomment-414764709
-IMAGE_DIMENSION = 100
-image_size = (IMAGE_DIMENSION, IMAGE_DIMENSION)
 CONFIDENCE_THRESHOLD = 0.2
 VIDEO_FILE = 0  # '/Users/igla/Downloads/Memorable Monologue- Talking in the Third Person.mp4'
 TEST_DIR = './out_test_mouth/'
 TEMP_FOLDER = "./temp"
 
-# KERAS mouth state recognition model
+# Provide trained KERAS model
 model = keras.models.load_model('./out_epoch_30/yawn_model_30.h5')
 
 # detect dlib landmarks for test
@@ -70,7 +69,7 @@ def detect_face(image):
         (startX, startY, endX, endY) = box.astype("int")
         confidence = detections[0, 0, i, 2]
         if confidence > 0.4:
-            print('Face confidence: ' + str(confidence))
+            # print('Face confidence: ' + str(confidence))
             rect_list.append((startX, startY, endX, endY))
             cv2.rectangle(image, (startX, startY), (endX, endY), (0, 255, 0), 2)
             count = count + 1  # save the modified image to the Output folder
@@ -103,7 +102,7 @@ def predict_image_data(img_array):
 
 def predict_image_path(input_img):
     loaded_img = keras.preprocessing.image.load_img(
-        input_img, target_size=image_size, color_mode="grayscale"
+        input_img, target_size=IMAGE_PAIR_SIZE, color_mode="grayscale"
     )
     img_array = keras.preprocessing.image.img_to_array(loaded_img)
     predict_image_data(img_array)
@@ -140,10 +139,8 @@ if __name__ == '__main__':
         for face in face_list:
             (startX, startY, endX, endY) = face_list[0]
             frame_crop = frame[startY:endY, startX:endX]
+            img_expanded = inference_utils.prepare_image(frame_crop, IMAGE_PAIR_SIZE)
 
-            image_frame = cv2.resize(frame_crop, image_size, cv2.INTER_AREA)
-            image_frame = cv2.cvtColor(image_frame, cv2.COLOR_BGR2GRAY)
-            img_expanded = image_frame[:, :, np.newaxis]  # expand 1 dimension
             prediction = predict_image_data(img_expanded)
             print(prediction)
 

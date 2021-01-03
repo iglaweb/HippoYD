@@ -1,3 +1,11 @@
+import os
+import sys
+
+# for Jupyter paths support, include other modules
+module_path = os.path.abspath(os.path.join('..'))
+if module_path not in sys.path:
+    sys.path.append(module_path)
+
 import math
 import os
 import pickle
@@ -10,112 +18,10 @@ import tensorflow as tf
 from keras_preprocessing.image import ImageDataGenerator
 from sklearn.metrics import roc_curve, auc
 from tensorflow import keras
-from tensorflow.keras import layers
 from tensorflow.python.client import device_lib
 
-from yawn_train.convert_dataset_video_to_mouth_img import MOUTH_AR_THRESH
-
-
-# https://medium.com/edureka/tensorflow-image-classification-19b63b7bfd95
-# https://www.tensorflow.org/hub/tutorials/tf2_text_classification
-# https://keras.io/examples/vision/image_classification_from_scratch/
-# https://www.kaggle.com/darthmanav/dog-vs-cat-classification-using-cnn
-# Input Layer: It represent input image data. It will reshape image into single diminsion array. Example your image is 100x100=10000, it will convert to (100,1) array.
-# Conv Layer: This layer will extract features from image.
-# Pooling Layer: This layer reduces the spatial volume of input image after convolution.
-# Fully Connected Layer: It connect the network from a layer to another layer
-# Output Layer: It is the predicted values layer.
-
-def create_model(input_shape) -> keras.Model:
-    # Note that when using the delayed-build pattern (no input shape specified),
-    # the model gets built the first time you call `fit`, `eval`, or `predict`,
-    # or the first time you call the model on some input data.
-    model = keras.Sequential()
-    model.add(layers.Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same',
-                            input_shape=input_shape))
-    model.add(layers.MaxPooling2D((2, 2)))
-    model.add(layers.Dropout(0.2))  # Layer 1
-    model.add(layers.Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same'))
-    model.add(layers.MaxPooling2D((2, 2)))
-    model.add(layers.Dropout(0.2))  # Layer 2
-    model.add(layers.Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same'))
-    model.add(layers.MaxPooling2D((2, 2)))
-    model.add(layers.Dropout(0.2))  # Layer 3
-    model.add(layers.Flatten())  # Fully connected layer
-    model.add(layers.Dense(128, activation='relu', kernel_initializer='he_uniform'))  # Fully connected layer
-    model.add(layers.Dropout(0.5))  # Fully connected layer
-    model.add(layers.Dense(1, activation='sigmoid'))  # Fully connected layer
-    # compile model
-    opt = keras.optimizers.SGD(lr=0.001, momentum=0.9)
-    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=['accuracy'])
-    return model
-
-
-def create_model_old(input_shape, num_classes) -> keras.Model:
-    # Let's then add a Flatten layer that flattens the input image, which then feeds into the next layer, a Dense layer, or fully-connected layer, with 128 hidden units. Finally, because our goal is to perform binary classification, our final layer will be a sigmoid, so that the output of our network will be a single scalar between 0 and 1, encoding the probability that the current image is of class 1 (class 1 being grass and class 0 being dandelion).
-    # model = tf.keras.models.Sequential([tf.keras.layers.Flatten(input_shape=(IMAGE_SIZE, IMAGE_SIZE, 1)),
-    #                                   tf.keras.layers.Dense(128, activation=tf.nn.relu),
-    #                                  tf.keras.layers.Dense(1, activation=tf.nn.sigmoid)])
-    data_augmentation = keras.Sequential(
-        [
-            layers.experimental.preprocessing.RandomFlip("horizontal"),
-            layers.experimental.preprocessing.RandomRotation(0.1),
-        ]
-    )
-    inputs = keras.Input(shape=input_shape)
-    x = data_augmentation(inputs)
-    # Entry block
-    x = layers.experimental.preprocessing.Rescaling(1.0 / 255)(x)
-    x = layers.Conv2D(32, 3, strides=2, padding="same")(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation("relu")(x)
-
-    x = layers.Conv2D(64, 3, padding="same")(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation("relu")(x)
-
-    previous_block_activation = x  # Set aside residual
-
-    for size in [128, 256, 512, 728]:
-        x = layers.Activation("relu")(x)
-        x = layers.SeparableConv2D(size, 3, padding="same")(x)
-        x = layers.BatchNormalization()(x)
-
-        x = layers.Activation("relu")(x)
-        x = layers.SeparableConv2D(size, 3, padding="same")(x)
-        x = layers.BatchNormalization()(x)
-
-        x = layers.MaxPooling2D(3, strides=2, padding="same")(x)
-
-        # Project residual
-        residual = layers.Conv2D(size, 1, strides=2, padding="same")(
-            previous_block_activation
-        )
-        x = layers.add([x, residual])  # Add back residual
-        previous_block_activation = x  # Set aside next residual
-
-    x = layers.SeparableConv2D(1024, 3, padding="same")(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation("relu")(x)
-
-    x = layers.GlobalAveragePooling2D()(x)
-    if num_classes == 2:
-        activation = "sigmoid"
-        units = 1
-    else:
-        activation = "softmax"
-        units = num_classes
-
-    x = layers.Dropout(0.5)(x)
-    outputs = layers.Dense(units, activation=activation)(x)
-    model = keras.Model(inputs, outputs)
-
-    # configure the specifications for model training. We will train our model with the binary_crossentropy loss. We will use the Adam optimizer. Adam is a sensible optimization algorithm because it automates learning-rate tuning for us
-    model.compile(optimizer=tf.optimizers.Adam(),
-                  loss='binary_crossentropy',
-                  metrics=['accuracy'])  # , 'mse', 'mae', 'mape'])
-    return model
-
+from yawn_train import train_utils
+from yawn_train.model_config import MOUTH_AR_THRESH, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS, IMAGE_PAIR_SIZE
 
 # https://github.com/tensorflow/tensorflow/issues/24828#issuecomment-464910864
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
@@ -169,10 +75,6 @@ MOUTH_CLOSED_FOLDER = f"{MOUTH_FOLDER}/closed"
 EPOCH = 1
 BATCH_SIZE = 8
 
-IMAGE_DIMENSION = 100
-COLOR_CHANNELS = 1
-IMAGE_PAIR_SIZE = (IMAGE_DIMENSION, IMAGE_DIMENSION)
-
 OUTPUT_FOLDER = f"./out_epoch_{EPOCH}"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
@@ -183,6 +85,7 @@ TFLITE_QUANT_PATH = f"{OUTPUT_FOLDER}/yawn_model_quant_{EPOCH}.tflite"
 TFLITE_FLOAT_PATH = f"{OUTPUT_FOLDER}/yawn_model_float_{EPOCH}.tflite"
 TFLITE_FLOAT_PATH2 = f"{OUTPUT_FOLDER}/yawn_model_float2_{EPOCH}.tflite"
 SAVED_MODEL = f"{OUTPUT_FOLDER}/saved_mouth_model_{EPOCH}"
+TFJS_MODEL = f"{OUTPUT_FOLDER}/tfjs_model_{EPOCH}"
 
 print('First 10 opened images')
 opened_eye_names = os.listdir(MOUTH_OPENED_FOLDER)
@@ -291,8 +194,9 @@ test_images[:] = [f'{MOUTH_PREPARE_VAL_FOLDER}/{x}' for x in test_images]
 print('Construct model')
 
 # Create a basic model instance
-input_shape = (IMAGE_DIMENSION, IMAGE_DIMENSION, COLOR_CHANNELS)
-model = create_model(input_shape)  # create_model(input_shape=(IMAGE_DIMENSION, IMAGE_DIMENSION, 1), num_classes=2)
+input_shape = (MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS)
+model = train_utils.create_model(
+    input_shape)  # create_model(input_shape=(IMAGE_DIMENSION, IMAGE_DIMENSION, 1), num_classes=2)
 keras.utils.plot_model(model, show_shapes=True)
 # Display the model's architecture
 model.summary()
@@ -311,42 +215,7 @@ with open(TRAIN_HISTORY_DICT_DUMP, 'wb') as file_pi:
 history_dict = history.history
 history_dict.keys()
 
-
-# plot diagnostic learning curves
-def summarize_diagnostics(history_dict):
-    acc = history_dict['accuracy']
-    val_acc = history_dict['val_accuracy']
-    loss = history_dict['loss']
-    val_loss = history_dict['val_loss']
-
-    epochs = range(1, len(acc) + 1)
-
-    # Plot Epochs / Training and validation loss
-    # "bo" is for "blue dot"
-    plt.plot(epochs, loss, 'bo', label='Training loss')
-    # b is for "solid blue line"
-    plt.plot(epochs, val_loss, 'b', label='Validation loss')
-    plt.title('Training and validation loss (Cross Entropy Loss)')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.savefig(f"{OUTPUT_FOLDER}/plot_epochs_loss.png")
-    plt.show()
-
-    # Plot Epochs / Training and validation accuracy
-    plt.clf()  # clear figure
-
-    plt.plot(epochs, acc, 'bo', label='Training acc')
-    plt.plot(epochs, val_acc, 'b', label='Validation acc')
-    plt.title('Training and validation accuracy (Classification Accuracy)')
-    plt.xlabel('Epochs')
-    plt.ylabel('Accuracy')
-    plt.legend()
-    plt.savefig(f"{OUTPUT_FOLDER}/plot_epochs_accuracy.png")
-    plt.show()
-
-
-summarize_diagnostics(history_dict)
+train_utils.summarize_diagnostics(history_dict, OUTPUT_FOLDER)
 
 # evaluate the accuracy of our model:
 final_loss, final_accuracy = model.evaluate(valid_generator)
@@ -373,7 +242,7 @@ plt.savefig(f"{OUTPUT_FOLDER}/plot_roc.png")
 plt.show()
 
 
-def plot_image(i, predictions_item, true_label_id, images):
+def plot_image(i, predictions_item, true_label_id, images) -> bool:
     true_label_id, img = true_label_id[i], images[i]
     plt.grid(False)
     plt.xticks([])
@@ -391,7 +260,8 @@ def plot_image(i, predictions_item, true_label_id, images):
     predicted_label_id = class_indices['opened' if is_mouth_opened else 'closed']
 
     predicted_class = class_names[predicted_label_id]
-    if predicted_label_id == true_label_id:
+    is_correct_prediction = predicted_label_id == true_label_id
+    if is_correct_prediction:
         color = 'blue'
     else:
         color = 'red'
@@ -399,9 +269,10 @@ def plot_image(i, predictions_item, true_label_id, images):
                                              predicted_score,
                                              class_names[true_label_id]),
                color=color)
+    return is_correct_prediction
 
 
-def plot_value_array(predictions_array):
+def plot_value_array(predictions_array, is_correct_prediction: bool):
     plt.grid(False)
     plt.xticks([])
     plt.yticks([])
@@ -409,7 +280,11 @@ def plot_value_array(predictions_array):
     thisplot = plt.bar(range(1), predicted_confidence, color="#777777")
     plt.ylim([0, 1])
     predicted_label = np.argmax(predictions_array)
-    thisplot[predicted_label].set_color('blue')
+    if is_correct_prediction:
+        color = 'blue'
+    else:
+        color = 'red'
+    thisplot[predicted_label].set_color(color)
 
 
 # Plot the first X test images, their predicted labels, and the true labels.
@@ -421,9 +296,9 @@ plt.figure(figsize=(2 * 2 * num_cols, 2 * num_rows))
 for i in range(num_images):
     idx = random.choice(range(len(predictions)))
     plt.subplot(num_rows, 2 * num_cols, 2 * i + 1)
-    plot_image(idx, predictions[idx], test_labels, test_images)
+    is_correct_pred = plot_image(idx, predictions[idx], test_labels, test_images)
     plt.subplot(num_rows, 2 * num_cols, 2 * i + 2)
-    plot_value_array(predictions[idx])
+    plot_value_array(predictions[idx], is_correct_pred)
 plt.tight_layout()
 plt.savefig(f"{OUTPUT_FOLDER}/plot_predictions.png")
 plt.show()
@@ -468,6 +343,7 @@ plt.show()
 predict_image(model, opened_mouth_img)
 
 # saved model
+print('Creating Saved model to:', SAVED_MODEL)
 tf.keras.models.save_model(
     model,
     SAVED_MODEL,
@@ -479,6 +355,7 @@ tf.keras.models.save_model(
 )
 # Save the entire model to a HDF5 file.
 # The '.h5' extension indicates that the model should be saved to HDF5.
+print('Save keras model to:', KERAS_MODEL_PATH)
 model.save(KERAS_MODEL_PATH)
 
 # Convert keras to onnx
@@ -491,26 +368,54 @@ os.system("python -m tf2onnx.convert \
         --saved-model {saved_model} \
         --output {onnx}".format(saved_model=SAVED_MODEL, onnx=ONNX_MODEL_PATH))
 
+# convert to js format
+try:
+    import tensorflowjs as tfjs
+except ImportError:
+    tfjs = None
+if tfjs:
+    tfjs.converters.save_keras_model(model, TFJS_MODEL)
+    print('Saved TFJS model to:', TFJS_MODEL)
+else:
+    print("You could convert tfjs right now, if you had tensorflowjs module.")
+
 converter = tf.lite.TFLiteConverter.from_saved_model(SAVED_MODEL)
 converter.optimizations = [tf.lite.Optimize.DEFAULT]
 tflite_quant_model = converter.convert()
-open(TFLITE_QUANT_PATH, "wb").write(tflite_quant_model)
+with open(TFLITE_QUANT_PATH, "wb") as w:
+    w.write(tflite_quant_model)
+print('Saved quantized TFLite model to:', TFLITE_QUANT_PATH)
+
+# test tflite quality
+print('Evaluate quant TFLite model')
+interpreter_quant = tf.lite.Interpreter(model_content=tflite_quant_model)
+interpreter_quant.allocate_tensors()
+train_utils.evaluate_model(interpreter_quant, test_images, test_labels)
 
 converter = tf.lite.TFLiteConverter.from_saved_model(SAVED_MODEL)
 converter.optimizations = [tf.lite.Optimize.DEFAULT]
 converter.target_spec.supported_types = [tf.float16]
 tflite_float_model = converter.convert()
-open(TFLITE_FLOAT_PATH, "wb").write(tflite_float_model)
+with open(TFLITE_FLOAT_PATH, "wb") as w:
+    w.write(tflite_float_model)
+print('Saved floating TFLite model to:', TFLITE_FLOAT_PATH)
+
+# test tflite quality
+print('Evaluate float TFLite model')
+interpreter_float = tf.lite.Interpreter(model_content=tflite_float_model)
+interpreter_float.allocate_tensors()
+train_utils.evaluate_model(interpreter_float, test_images, test_labels)
 
 # Create a concrete function from the SavedModel
 model = tf.saved_model.load(SAVED_MODEL)
 concrete_func = model.signatures[
     tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
 # Specify the input shape
-concrete_func.inputs[0].set_shape([1, IMAGE_DIMENSION, IMAGE_DIMENSION, COLOR_CHANNELS])
+concrete_func.inputs[0].set_shape([1, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS])
 # Convert the model and export
 converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
 converter.optimizations = [tf.lite.Optimize.DEFAULT]
 converter.target_spec.supported_types = [tf.float16]  # Only for float16
 tflite_model = converter.convert()
-open(TFLITE_FLOAT_PATH2, "wb").write(tflite_model)
+with open(TFLITE_FLOAT_PATH2, "wb") as w:
+    w.write(tflite_model)
