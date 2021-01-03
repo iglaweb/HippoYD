@@ -390,7 +390,8 @@ print('Saved quantized TFLite model to:', TFLITE_QUANT_PATH)
 print('Evaluate quant TFLite model')
 interpreter_quant = tf.lite.Interpreter(model_content=tflite_quant_model)
 interpreter_quant.allocate_tensors()
-train_utils.evaluate_model(interpreter_quant, test_images, test_labels)
+test_accuracy_tflite_q = train_utils.evaluate_model(interpreter_quant, test_images, test_labels)
+print('Quantized TFLite test_accuracy:', test_accuracy_tflite_q)
 
 converter = tf.lite.TFLiteConverter.from_saved_model(SAVED_MODEL)
 converter.optimizations = [tf.lite.Optimize.DEFAULT]
@@ -404,7 +405,8 @@ print('Saved floating TFLite model to:', TFLITE_FLOAT_PATH)
 print('Evaluate float TFLite model')
 interpreter_float = tf.lite.Interpreter(model_content=tflite_float_model)
 interpreter_float.allocate_tensors()
-train_utils.evaluate_model(interpreter_float, test_images, test_labels)
+test_accuracy_tflite_f = train_utils.evaluate_model(interpreter_float, test_images, test_labels)
+print('Floating TFLite test_accuracy:', test_accuracy_tflite_f)
 
 # Create a concrete function from the SavedModel
 model = tf.saved_model.load(SAVED_MODEL)
