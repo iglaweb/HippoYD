@@ -6,6 +6,10 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
+# plot diagnostic learning curves
+from yawn_train.model_config import IMAGE_PAIR_SIZE
+
+
 # https://medium.com/edureka/tensorflow-image-classification-19b63b7bfd95
 # https://www.tensorflow.org/hub/tutorials/tf2_text_classification
 # https://keras.io/examples/vision/image_classification_from_scratch/
@@ -15,10 +19,6 @@ from tensorflow.keras import layers
 # Pooling Layer: This layer reduces the spatial volume of input image after convolution.
 # Fully Connected Layer: It connect the network from a layer to another layer
 # Output Layer: It is the predicted values layer.
-
-
-# plot diagnostic learning curves
-from yawn_train.model_config import IMAGE_PAIR_SIZE
 
 
 def summarize_diagnostics(history_dict, output_folder):
@@ -151,7 +151,7 @@ def evaluate_model(interpreter, test_images, test_labels):
     floating_model = interpreter.get_input_details()[0]['dtype'] == np.float32
 
     # Run predictions on ever y image in the "test" dataset.
-    prediction_digits = []
+    prediction_confs = []
     for i, test_image in enumerate(test_images):
         if i % 1000 == 0:
             print('Evaluated on {n} results so far.'.format(n=i))
@@ -180,33 +180,28 @@ def evaluate_model(interpreter, test_images, test_labels):
         # probability.
         output = interpreter.tensor(output_index)
         pred_confidence = np.argmax(output()[0])
-        # prediction_digits.append(pred_confidence)
 
         is_mouth_opened = True if pred_confidence >= 0.2 else False
         # classes taken from input data
         class_indices = {'closed': 0, 'opened': 1}
         predicted_label_id = class_indices['opened' if is_mouth_opened else 'closed']
-        prediction_digits.append(predicted_label_id)
+        prediction_confs.append(predicted_label_id)
 
     print('\n')
     # Compare prediction results with ground truth labels to calculate accuracy.
-    prediction_digits = np.array(prediction_digits)
-    accuracy = (prediction_digits == test_labels).mean()
+    prediction_confs = np.array(prediction_confs)
+    accuracy = (prediction_confs == test_labels).mean()
     return accuracy
 
 
-def prune_model(model, train_images, test_images, test_labels):
+def prune_model(model, train_generator, batch_size: int, valid_generator, output_keras_prune):
     import tensorflow_model_optimization as tfmot
 
     prune_low_magnitude = tfmot.sparsity.keras.prune_low_magnitude
-
-    # Compute end step to finish pruning after 2 epochs.
-    batch_size = 128
-    epochs = 2
-    validation_split = 0.1  # 10% of training set will be used for validation set.
-
-    num_images = train_images.shape[0] * (1 - validation_split)
-    end_step = np.ceil(num_images / batch_size).astype(np.int32) * epochs
+    # Compute end step to finish pruning after 10 epochs.
+    epochs = 10
+    num_images = len(train_generator.filenames)
+    end_step = np.ceil(num_images / (1.0 * batch_size)).astype(np.int32) * epochs
 
     # Define model for pruning.
     pruning_params = {
@@ -222,7 +217,6 @@ def prune_model(model, train_images, test_images, test_labels):
     model_for_pruning.compile(optimizer='adam',
                               loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                               metrics=['accuracy'])
-
     model_for_pruning.summary()
 
     logdir = tempfile.mkdtemp()
@@ -230,11 +224,18 @@ def prune_model(model, train_images, test_images, test_labels):
         tfmot.sparsity.keras.UpdatePruningStep(),
         tfmot.sparsity.keras.PruningSummaries(log_dir=logdir),
     ]
-    model_for_pruning.fit(train_images, train_labels,
-                          batch_size=batch_size, epochs=epochs, validation_split=validation_split,
+    model_for_pruning.fit(train_generator,
+                          epochs=epochs,
+                          batch_size=batch_size,
+                          verbose=1,
+                          validation_data=valid_generator,
                           callbacks=callbacks)
 
     _, model_for_pruning_accuracy = model_for_pruning.evaluate(
-        test_images, test_labels, verbose=0)
-    print('Baseline test accuracy:', baseline_model_accuracy)
+        valid_generator, verbose=1)
+    # print('Baseline test accuracy:', baseline_model_accuracy)
     print('Pruned test accuracy:', model_for_pruning_accuracy)
+
+    model_for_export = tfmot.sparsity.keras.strip_pruning(model_for_pruning)
+    tf.keras.models.save_model(model_for_export, output_keras_prune, include_optimizer=False)
+    print('Saved pruned Keras model to:', output_keras_prune)

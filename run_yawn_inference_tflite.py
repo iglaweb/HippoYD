@@ -138,7 +138,7 @@ def detect_face(image):
 
 
 def clear_test():
-    # clear previous output images¬
+    # clear previous output images
     files = glob.glob(f'{TEST_DIR}*.jpg', recursive=True)
     for f in files:
         try:

@@ -2,13 +2,14 @@ import os
 import sys
 
 # for Jupyter paths support, include other modules
+from tensorflow.python.keras.callbacks import CSVLogger
+
 module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
 
 import math
 import os
-import pickle
 import random
 
 import matplotlib.image as mpimg
@@ -78,9 +79,12 @@ BATCH_SIZE = 8
 OUTPUT_FOLDER = f"./out_epoch_{EPOCH}"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-TRAIN_HISTORY_DICT_DUMP = f'{OUTPUT_FOLDER}/train_history_dict.txt'
+IS_PRUNE_MODEL = True
+
+TRAIN_HISTORY_CSV = f'{OUTPUT_FOLDER}/train_history.csv'
 ONNX_MODEL_PATH = f"{OUTPUT_FOLDER}/yawn_model_onnx_{EPOCH}.onnx"
 KERAS_MODEL_PATH = f"{OUTPUT_FOLDER}/yawn_model_{EPOCH}.h5"
+KERAS_PRUNE_MODEL_PATH = f"{OUTPUT_FOLDER}/yawn_model_prune_{EPOCH}.h5"
 TFLITE_QUANT_PATH = f"{OUTPUT_FOLDER}/yawn_model_quant_{EPOCH}.tflite"
 TFLITE_FLOAT_PATH = f"{OUTPUT_FOLDER}/yawn_model_float_{EPOCH}.tflite"
 TFLITE_FLOAT_PATH2 = f"{OUTPUT_FOLDER}/yawn_model_float2_{EPOCH}.tflite"
@@ -201,14 +205,14 @@ keras.utils.plot_model(model, show_shapes=True)
 # Display the model's architecture
 model.summary()
 
+# use CSVLogger callback to save training history
+csv_logger = CSVLogger(TRAIN_HISTORY_CSV, append=True, separator=';')
 history = model.fit(train_generator,
                     epochs=EPOCH,
                     batch_size=BATCH_SIZE,
                     verbose=1,
-                    validation_data=valid_generator)
-# save history for later analysis and plot
-with open(TRAIN_HISTORY_DICT_DUMP, 'wb') as file_pi:
-    pickle.dump(history.history, file_pi)
+                    validation_data=valid_generator,
+                    callbacks=[csv_logger])
 
 #  a graph of accuracy and loss over time
 # plot the training and validation loss for comparison, as well as the training and validation accuracy
@@ -218,7 +222,7 @@ history_dict.keys()
 train_utils.summarize_diagnostics(history_dict, OUTPUT_FOLDER)
 
 # evaluate the accuracy of our model:
-final_loss, final_accuracy = model.evaluate(valid_generator)
+final_loss, final_accuracy = model.evaluate(valid_generator, verbose=1)
 print("Final loss: {:.2f}".format(final_loss))
 print("Final accuracy: {:.2f}%".format(final_accuracy * 100))
 
@@ -343,7 +347,6 @@ plt.show()
 predict_image(model, opened_mouth_img)
 
 # saved model
-print('Creating Saved model to:', SAVED_MODEL)
 tf.keras.models.save_model(
     model,
     SAVED_MODEL,
@@ -353,10 +356,16 @@ tf.keras.models.save_model(
     signatures=None,
     options=None
 )
+
 # Save the entire model to a HDF5 file.
 # The '.h5' extension indicates that the model should be saved to HDF5.
-print('Save keras model to:', KERAS_MODEL_PATH)
-model.save(KERAS_MODEL_PATH)
+model.save(KERAS_MODEL_PATH, include_optimizer=False)
+print('Saved keras model to:', KERAS_MODEL_PATH)
+
+if IS_PRUNE_MODEL:
+    # prune model
+    print('Prune model')
+    train_utils.prune_model(model, train_generator, BATCH_SIZE, valid_generator, KERAS_PRUNE_MODEL_PATH)
 
 # Convert keras to onnx
 # import keras2onnx
