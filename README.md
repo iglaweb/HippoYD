@@ -21,16 +21,34 @@ The model was trained using video dataset [YawDD](https://ieee-dataport.org/open
 		<tr>
             <th>Configuration</th>
             <th>Config</th>
-            <th>Model Type</th>
+            <th>Model</th>
             <th>Time (avg)</th>
             <th>FPS</th>
 		</tr>
-		<tr>
-			<td>Macbook Pro, CPU<br/>2 GHz Quad-Core Intel Core i5</td>
+      <tr>
+			<td rowspan="4">Macbook Pro, CPU<br/>2 GHz Quad-Core Intel Core i5</td>
          <td>CPU</td>
-			<td>Floating</td>
+			<td>TFLite (Floating)</td>
+         <td>3-5 ms</td>
+         <td>250</td>
+		</tr>
+      <tr>
+         <td>CPU</td>
+			<td>TFLite (Quantized)</td>
+         <td>6-8 ms</td>
+         <td>140</td>
+		</tr>
+		<tr>
+         <td>CPU</td>
+			<td>Keras H5 (Floating)</td>
          <td>40-50 ms</td>
          <td>20</td>
+		</tr>
+      <tr>
+         <td>CPU</td>
+			<td>ONNX (Floating)</td>
+         <td>2-3 ms</td>
+         <td>500</td>
 		</tr>
 	</tbody>
 </table>
