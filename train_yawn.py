@@ -79,11 +79,12 @@ BATCH_SIZE = 8
 OUTPUT_FOLDER = f"./out_epoch_{EPOCH}"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-IS_PRUNE_MODEL = True
+IS_PRUNE_MODEL = False
 
 TRAIN_HISTORY_CSV = f'{OUTPUT_FOLDER}/train_history.csv'
 ONNX_MODEL_PATH = f"{OUTPUT_FOLDER}/yawn_model_onnx_{EPOCH}.onnx"
 KERAS_MODEL_PATH = f"{OUTPUT_FOLDER}/yawn_model_{EPOCH}.h5"
+FROZEN_MODEL_PATH = f"{OUTPUT_FOLDER}/yawn_model_{EPOCH}.pb"
 KERAS_PRUNE_MODEL_PATH = f"{OUTPUT_FOLDER}/yawn_model_prune_{EPOCH}.h5"
 TFLITE_QUANT_PATH = f"{OUTPUT_FOLDER}/yawn_model_quant_{EPOCH}.tflite"
 TFLITE_FLOAT_PATH = f"{OUTPUT_FOLDER}/yawn_model_float_{EPOCH}.tflite"
@@ -357,8 +358,11 @@ tf.keras.models.save_model(
     options=None
 )
 
+train_utils.export_pb(SAVED_MODEL, FROZEN_MODEL_PATH)
+
 # Save the entire model to a HDF5 file.
 # The '.h5' extension indicates that the model should be saved to HDF5.
+# Set include_optimizer=False to reduce output model size (e.g. 19.7mb -> 9.8mb)
 model.save(KERAS_MODEL_PATH, include_optimizer=False)
 print('Saved keras model to:', KERAS_MODEL_PATH)
 
@@ -367,15 +371,7 @@ if IS_PRUNE_MODEL:
     print('Prune model')
     train_utils.prune_model(model, train_generator, BATCH_SIZE, valid_generator, KERAS_PRUNE_MODEL_PATH)
 
-# Convert keras to onnx
-# import keras2onnx
-# keras_model = keras.models.load_model(KERAS_MODEL_PATH)
-# onnx_model = keras2onnx.convert_keras(keras_model, ONNX_MODEL_PATH)
-
-# https://github.com/ysh329/deep-learning-model-convertor
-os.system("python -m tf2onnx.convert \
-        --saved-model {saved_model} \
-        --output {onnx}".format(saved_model=SAVED_MODEL, onnx=ONNX_MODEL_PATH))
+train_utils.convert_tf2onnx(SAVED_MODEL, ONNX_MODEL_PATH)
 
 # convert to js format
 try:
@@ -430,3 +426,4 @@ converter.target_spec.supported_types = [tf.float16]  # Only for float16
 tflite_model = converter.convert()
 with open(TFLITE_FLOAT_PATH2, "wb") as w:
     w.write(tflite_model)
+print('Saved TFLite floating16 to:', TFLITE_FLOAT_PATH2)

@@ -1,3 +1,4 @@
+import os
 import tempfile
 
 import matplotlib.pyplot as plt
@@ -34,10 +35,16 @@ def summarize_diagnostics(history_dict, output_folder):
     plt.plot(epochs, loss, 'bo', label='Training loss')
     # b is for "solid blue line"
     plt.plot(epochs, val_loss, 'b', label='Validation loss')
+
+    plt.minorticks_on()
+    plt.grid(which='major')
+    plt.grid(which='minor', linestyle=':')
+
     plt.title('Training and validation loss (Cross Entropy Loss)')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.legend()
+
     plt.savefig(f"{output_folder}/plot_epochs_loss.png")
     plt.show()
 
@@ -46,6 +53,11 @@ def summarize_diagnostics(history_dict, output_folder):
 
     plt.plot(epochs, acc, 'bo', label='Training acc')
     plt.plot(epochs, val_acc, 'b', label='Validation acc')
+
+    plt.minorticks_on()
+    plt.grid(which='major')
+    plt.grid(which='minor', linestyle=':')
+
     plt.title('Training and validation accuracy (Classification Accuracy)')
     plt.xlabel('Epochs')
     plt.ylabel('Accuracy')
@@ -239,3 +251,30 @@ def prune_model(model, train_generator, batch_size: int, valid_generator, output
     model_for_export = tfmot.sparsity.keras.strip_pruning(model_for_pruning)
     tf.keras.models.save_model(model_for_export, output_keras_prune, include_optimizer=False)
     print('Saved pruned Keras model to:', output_keras_prune)
+
+
+def convert_tf2onnx(saved_model, onnx_path):
+    # Convert keras to onnx
+    # import keras2onnx
+    # keras_model = keras.models.load_model(KERAS_MODEL_PATH)
+    # onnx_model = keras2onnx.convert_keras(keras_model, ONNX_MODEL_PATH)
+
+    # https://github.com/ysh329/deep-learning-model-convertor
+    os.system("python -m tf2onnx.convert \
+            --saved-model {saved_model} \
+            --output {onnx}".format(saved_model=saved_model, onnx=onnx_path))
+
+
+def export_pb(saved_model, output_path):
+    from tensorflow.python.framework.convert_to_constants import convert_variables_to_constants_v2
+    model = tf.saved_model.load(saved_model)
+    full_model = tf.function(lambda x: model(x))
+    f = full_model.get_concrete_function(
+        tf.TensorSpec(shape=[None, 100, 100, 1],
+                      dtype=tf.float32))
+    f2 = convert_variables_to_constants_v2(f)
+    graph_def = f2.graph.as_graph_def()
+    # Export frozen graph
+    with tf.io.gfile.GFile(output_path, 'wb') as f:
+        f.write(graph_def.SerializeToString())
+    print('Saved frozen model to:', output_path)

@@ -1,4 +1,3 @@
-import datetime
 import glob
 import os
 from pathlib import Path
@@ -10,6 +9,7 @@ import tensorflow as tf
 
 from yawn_train import download_utils, inference_utils
 from yawn_train.model_config import IMAGE_PAIR_SIZE
+from yawn_train.video_face_reader import VideoFaceDetector
 
 assert tf.__version__.startswith('2')
 
@@ -20,11 +20,6 @@ Use this to run interference
 Helpful links
 https://colab.research.google.com/github/tensorflow/examples/blob/master/lite/codelabs/digit_classifier/ml/step2_train_ml_model.ipynb#scrollTo=WFHKkb7gcJei
 """
-
-
-def get_timestamp_ms():
-    return int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() * 1000)
-
 
 print("Version: ", tf.__version__)
 print("Eager mode: ", tf.executing_eagerly())
@@ -87,7 +82,7 @@ def make_interference(image_frame):
     else:  # 0.00390625 * q
         images_data = np.expand_dims(image_frame, 0).astype(np.uint8)  # or [img_data]
 
-    start = get_timestamp_ms()
+    start = inference_utils.get_timestamp_ms()
     # Inference on input data normalized to [0, 1]
     interpreter.set_tensor(input_details[0]['index'], images_data)
     interpreter.invoke()
@@ -95,7 +90,7 @@ def make_interference(image_frame):
 
     global time_elapsed
     global exec_cnt
-    diff = get_timestamp_ms() - start
+    diff = inference_utils.get_timestamp_ms() - start
     time_elapsed = time_elapsed + diff
     exec_cnt = exec_cnt + 1
     print(f'Elapsed time: {diff} ms')
@@ -148,39 +143,34 @@ def clear_test():
     Path(TEST_DIR).mkdir(parents=True, exist_ok=True)
 
 
+def image_reader(frame, face):
+    (startX, startY, endX, endY) = face
+    frame_crop = frame[startY:endY, startX:endX]
+
+    predicted_confidence = make_interference(frame_crop)
+    print(predicted_confidence)
+
+    global mouth_open_counter
+    is_mouth_opened = True if predicted_confidence >= CONFIDENCE_THRESHOLD else False
+    if is_mouth_opened:
+        mouth_open_counter = mouth_open_counter + 1
+
+    cv2.putText(frame, f"Mouth opened {mouth_open_counter}", (0, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.8,
+                (0, 0, 255),
+                2)
+    opened_str = "Opened" if is_mouth_opened else "Closed"
+    cv2.putText(frame, opened_str, (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+    cv2.imshow("Image", frame)
+    cv2.waitKey(1)
+
+
 if __name__ == '__main__':
     # test http://cv.cs.nthu.edu.tw/php/callforpaper/datasets/DDD/ ?
     # https://sites.google.com/view/utarldd/home
 
     clear_test()
     mouth_open_counter = 0
-    vid = cv2.VideoCapture(VIDEO_FILE)
-    while True:
-        _, frame = vid.read()
-        face_list = detect_face(frame)
-        if len(face_list) == 0:
-            print('Face size empty')
-            cv2.imshow('Image', frame)
-            cv2.waitKey(1)
-            continue
 
-        for face in face_list:
-            (startX, startY, endX, endY) = face_list[0]
-            frame_crop = frame[startY:endY, startX:endX]
-
-            predicted_confidence = make_interference(frame_crop)
-            print(predicted_confidence)
-
-            is_mouth_opened = True if predicted_confidence >= CONFIDENCE_THRESHOLD else False
-            if is_mouth_opened:
-                mouth_open_counter = mouth_open_counter + 1
-
-            cv2.putText(frame, f"Mouth opened {mouth_open_counter}", (0, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.8,
-                        (0, 0, 255),
-                        2)
-            opened_str = "Opened" if is_mouth_opened else "Closed"
-            cv2.putText(frame, opened_str, (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-            cv2.imshow("Image", frame)
-            cv2.waitKey(1)
-    vid.release()
+    video_face_detector = VideoFaceDetector(VIDEO_FILE, face_model)
+    video_face_detector.start(image_reader)
     cv2.destroyAllWindows()
