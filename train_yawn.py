@@ -80,6 +80,7 @@ OUTPUT_FOLDER = f"./out_epoch_{EPOCH}"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 IS_PRUNE_MODEL = False
+IS_EVALUATE_TFLITE = False
 
 TRAIN_HISTORY_CSV = f'{OUTPUT_FOLDER}/train_history.csv'
 ONNX_MODEL_PATH = f"{OUTPUT_FOLDER}/yawn_model_onnx_{EPOCH}.onnx"
@@ -391,12 +392,13 @@ with open(TFLITE_QUANT_PATH, "wb") as w:
     w.write(tflite_quant_model)
 print('Saved quantized TFLite model to:', TFLITE_QUANT_PATH)
 
-# test tflite quality
-print('Evaluate quant TFLite model')
-interpreter_quant = tf.lite.Interpreter(model_content=tflite_quant_model)
-interpreter_quant.allocate_tensors()
-test_accuracy_tflite_q = train_utils.evaluate_model(interpreter_quant, test_images, test_labels)
-print('Quantized TFLite test_accuracy:', test_accuracy_tflite_q)
+if IS_EVALUATE_TFLITE:
+    # test tflite quality
+    print('Evaluate quant TFLite model')
+    interpreter_quant = tf.lite.Interpreter(model_content=tflite_quant_model)
+    interpreter_quant.allocate_tensors()
+    test_accuracy_tflite_q = train_utils.evaluate_model(interpreter_quant, test_images, test_labels)
+    print('Quantized TFLite test_accuracy:', test_accuracy_tflite_q)
 
 converter = tf.lite.TFLiteConverter.from_saved_model(SAVED_MODEL)
 converter.optimizations = [tf.lite.Optimize.DEFAULT]
@@ -406,12 +408,13 @@ with open(TFLITE_FLOAT_PATH, "wb") as w:
     w.write(tflite_float_model)
 print('Saved floating TFLite model to:', TFLITE_FLOAT_PATH)
 
-# test tflite quality
-print('Evaluate float TFLite model')
-interpreter_float = tf.lite.Interpreter(model_content=tflite_float_model)
-interpreter_float.allocate_tensors()
-test_accuracy_tflite_f = train_utils.evaluate_model(interpreter_float, test_images, test_labels)
-print('Floating TFLite test_accuracy:', test_accuracy_tflite_f)
+if IS_EVALUATE_TFLITE:
+    # test tflite quality
+    print('Evaluate float TFLite model')
+    interpreter_float = tf.lite.Interpreter(model_content=tflite_float_model)
+    interpreter_float.allocate_tensors()
+    test_accuracy_tflite_f = train_utils.evaluate_model(interpreter_float, test_images, test_labels)
+    print('Floating TFLite test_accuracy:', test_accuracy_tflite_f)
 
 # Create a concrete function from the SavedModel
 model = tf.saved_model.load(SAVED_MODEL)

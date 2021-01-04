@@ -263,6 +263,7 @@ def convert_tf2onnx(saved_model, onnx_path):
     os.system("python -m tf2onnx.convert \
             --saved-model {saved_model} \
             --output {onnx}".format(saved_model=saved_model, onnx=onnx_path))
+    print('Saved onnx model to:', onnx_path)
 
 
 def export_pb(saved_model, output_path):
