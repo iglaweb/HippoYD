@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+
+<script src="libs/stats.min.js" type="text/javascript"></script>
+<script async src="opencv_451.js" type="text/javascript"></script>
+<script src="utils.js" type="text/javascript"></script>
+
+<script type='text/javascript'>
+var netDet = undefined;
+var netDetYawn = undefined;
+// whether streaming video from the camera.
+let streaming = false;
+let isRunning = false;
+
+let camera = null; // layout
+let cap = null;
+let frame = null;
+let frameBGR = null;
+let frameGray = null;
+
+//! [Run face detection model]
+function detectFaces(img) {
+
+  let dsize = new cv.Size(300, 300);
+  let dst = new cv.Mat();
+   // You can try more different parameters
+  cv.resize(img, dst, dsize, 0, 0, cv.INTER_AREA);
+
+  var blob = cv.blobFromImage(dst, 1, {width: 192, height: 144}, [104, 117, 123, 0], false, false);
+  netDet.setInput(blob);
+  var out = netDet.forward();
+
+  var faces = [];
+  for (var i = 0, n = out.data32F.length; i < n; i += 7) {
+    var confidence = out.data32F[i + 2];
+    var left = out.data32F[i + 3] * img.cols;
+    var top = out.data32F[i + 4] * img.rows;
+    var right = out.data32F[i + 5] * img.cols;
+    var bottom = out.data32F[i + 6] * img.rows;
+    left = Math.min(Math.max(0, left), img.cols - 1);
+    right = Math.min(Math.max(0, right), img.cols - 1);
+    bottom = Math.min(Math.max(0, bottom), img.rows - 1);
+    top = Math.min(Math.max(0, top), img.rows - 1);
+
+    if (confidence > 0.5 && left < right && top < bottom) {
+      faces.push({x: left, y: top, width: right - left, height: bottom - top})
+    }
+  }
+  blob.delete();
+  out.delete();
+  return faces;
+};
+//! [Run face detection model]
+
+
+//! [Run mouth detection model]
+function detectYawnProbability(img) {
+  var blob = cv.blobFromImage(img, 1/255.0, {width: 100, height: 100});
+  netDetYawn.setInput(blob);
+  var out = netDetYawn.forward();
+  var preds = [];
+  for (var i = 0; i < out.data32F.length; i++) {
+    var confidence = out.data32F[i];
+    preds.push(confidence)
+  }
+  blob.delete();
+  out.delete();
+  return preds;
+};
+//! [Run mouth detection model]
+
+// MobileNet-SSD
+function loadModels(callback) {
+  var utils = new Utils('');
+  var proto = 'https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy_lowres.prototxt';
+  var weights = 'https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20180205_fp16/res10_300x300_ssd_iter_140000_fp16.caffemodel';
+  var onnx_yawn = 'https://raw.githubusercontent.com/iglaweb/YawnMouthOpenDetect/master/out_epoch_30/yawn_model_onnx_30.onnx';
+  utils.createFileFromUrl('face_detector.prototxt', proto, () => {
+    document.getElementById('status').innerHTML = 'Downloading face_detector.caffemodel';
+    utils.createFileFromUrl('face_detector.caffemodel', weights, () => {
+      document.getElementById('status').innerHTML = 'Downloading yawn_model_onnx_30.onnx';
+      utils.createFileFromUrl('yawn_model_onnx_30.onnx', onnx_yawn, () => {
+        document.getElementById('status').innerHTML = '';
+          netDet = cv.readNetFromCaffe('face_detector.prototxt', 'face_detector.caffemodel');
+          console.log('Loaded CAFFE-based Face Detection');
+          netDetYawn = cv.readNetFromONNX('yawn_model_onnx_30.onnx');
+          console.log('Loaded ONNX-based Face Detection');
+          callback();
+      });
+    });
+  });
+};
+
+function initUI() {
+  // Create a camera object.
+  var output = document.getElementById('output');
+  camera = document.createElement("video");
+  camera.setAttribute("width", output.width);
+  camera.setAttribute("height", output.height);
+
+  stats = new Stats();
+  stats.showPanel(0);
+  document.getElementById('container').appendChild(stats.dom);
+}
+
+function startCamera() {
+  if (streaming) return;
+
+  if(camera.srcObject != null) {
+    return;
+  }
+
+  // Get a permission from user to use a camera.
+  navigator.mediaDevices.getUserMedia({video: true, audio: false})
+    .then(function(stream) {
+      camera.srcObject = stream;
+      camera.onloadedmetadata = function(e) {
+        camera.play();
+      };
+  }).catch(function(err) {
+    console.log("An error occured! " + err);
+  });
+
+  camera.addEventListener("canplay", function(ev){
+    if (!streaming) {
+      console.log('Started streaming');
+      streaming = true;
+    }
+  }, false);
+
+  //! [Open a camera stream]
+  cap = new cv.VideoCapture(camera);
+  console.log('Camera image w=' + camera.width + ', h=' + camera.height);
+  frame = new cv.Mat(camera.height, camera.width, cv.CV_8UC4);
+  frameBGR = new cv.Mat(camera.height, camera.width, cv.CV_8UC3);
+  frameGray = new cv.Mat(camera.height, camera.width, cv.CV_8UC3);
+  //! [Open a camera stream]
+}
+
+//! [Define frames processing]
+function captureFrame() {
+    if (!streaming) {
+        // clean and stop.
+        return;
+    }
+
+    var begin = Date.now();
+    cap.read(frame);  // Read a frame from camera
+
+    stats.begin();
+    cv.cvtColor(frame, frameBGR, cv.COLOR_RGBA2BGR);
+
+    const start = performance.now();
+    var faces = detectFaces(frameBGR);
+    const time  = Math.round(performance.now() - start);
+    console.log('Face inference time: ' + time + ' ms');
+
+    faces.forEach(function(rect) {
+      cv.rectangle(frame, {x: rect.x, y: rect.y}, {x: rect.x + rect.width, y: rect.y + rect.height}, [0, 255, 0, 255]);
+
+      var face = frameBGR.roi(rect);
+      cv.cvtColor(face, frameGray, cv.COLOR_BGR2GRAY);
+      console.log('Predict image');
+
+      const start = performance.now();
+      var yawn_ret = detectYawnProbability(frameGray);
+      var yawn_prob = Math.round(yawn_ret[0] * 100) / 100;
+      const time  = Math.round(performance.now() - start);
+      console.log('Yawn inference time: ' + time + ' ms');
+      console.log('Prediction: ' + yawn_prob);
+
+      var mouth_opened_str = yawn_prob > 0.2 ? "Mouth: opened" : "Mouth: closed";
+      var mouth_time_str = "Time: " + time + " ms";
+      cv.putText(frame, mouth_opened_str, {x: rect.x, y: rect.y}, cv.FONT_HERSHEY_SIMPLEX, 1.0, [0, 255, 0, 255]);
+      cv.putText(frame, mouth_time_str, {x: rect.x, y: rect.y + 25}, cv.FONT_HERSHEY_SIMPLEX, 1.0, [0, 255, 0, 255]);
+
+      //let probability = predict_image_sync(frameGray);
+      //console.log(probability);
+    });
+
+    stats.end();
+    cv.imshow(output, frame);
+    requestAnimationFrame(captureFrame);
+  };
+  //! [Define frames processing]
+
+  function stopVideoProcessing() {
+    if (frame != null && !frame.isDeleted()) frame.delete();
+    if (frameBGR != null && !frameBGR.isDeleted()) frameBGR.delete();
+    if (frameGray != null && !frameGray.isDeleted()) frameGray.delete();
+  }
+
+  function stopCamera() {
+    if (!streaming) return;
+
+    console.log('Stop camera');
+    stopVideoProcessing();
+    camera.pause();
+    camera.srcObject = null;
+    
+    if(netDetYawn != null) {
+      netDetYawn.delete();
+    }
+    if(netDet != null) {
+      netDet.delete();
+    }
+
+    streaming = false;
+    isRunning = false;
+  }
+
+function main() {
+  console.log('OpenCV.js is ready');
+  if (streaming) return;
+
+  // init UI
+  initUI();
+  // print opencv info
+  //console.log(cv.getBuildInformation());
+
+  startCamera();
+
+  document.getElementById('startStopButton').onclick = function toggle() {
+    if (isRunning) {
+      stopCamera();
+      document.getElementById('startStopButton').innerHTML = 'Start';
+    } else {
+      function run() {
+        isRunning = true;
+        startCamera();
+        captureFrame();
+        document.getElementById('startStopButton').innerHTML = 'Stop';
+        document.getElementById('startStopButton').disabled = false;
+      }
+      if (netDet == undefined || netDetYawn == undefined) {
+        document.getElementById('startStopButton').disabled = true;
+        loadModels(run);  // Load models and run a pipeline;
+      } else {
+        run();
+      }
+    }
+  };
+
+  document.getElementById('startStopButton').disabled = false;
+};
+</script>
+</head>
+
+<body onload="cv['onRuntimeInitialized']=()=>{ main() }">
+
+  <div id="info" style="text-align:center"></div>
+  <script src="libs/utils.js" type="text/javascript"></script>
+  <script>
+    var featuresReady = checkFeatures(document.getElementById("info"), {webrtc: true});
+  </script>
+
+  <div id="container">
+    <canvas class="center-block" id="canvasOutput" width=120 height=80></canvas>
+  </div>
+
+  <button id="startStopButton" type="button" disabled="true">Start</button>
+  <div id="status"></div>
+  <canvas id="output" width=640 height=480 style="max-width: 100%"></canvas>
+
+  <table>
+    <tr id="targetImgs"></tr>
+    <tr id="targetNames"></tr>
+  </table>
+
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.min.js" integrity="sha384-w1Q4orYjBQndcko6MimVbzY0tgp4pWB4lZ7lr30WKz0vr/aWKhXdBNmNb5D92v7s" crossorigin="anonymous"></script>
+  <!--<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
+  <script src="../predict.js"></script>-->
+
+</body>
+</html>
