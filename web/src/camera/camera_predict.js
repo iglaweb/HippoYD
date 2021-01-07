@@ -74,19 +74,23 @@ function loadModels(callback) {
   var utils = new Utils('');
   var proto = 'https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy_lowres.prototxt';
   var weights = 'https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20180205_fp16/res10_300x300_ssd_iter_140000_fp16.caffemodel';
-  var onnx_yawn = 'https://raw.githubusercontent.com/iglaweb/YawnMouthOpenDetect/master/out_epoch_30/yawn_model_onnx_30.onnx';
+  var onnx_yawn = 'https://raw.githubusercontent.com/iglaweb/YawnMouthOpenDetect/master/out_epoch_60/yawn_model_onnx_60.onnx';
   
-  console.log('Load config face_detector.prototxt');
-  utils.createFileFromUrl('face_detector.prototxt', proto, () => {
-    document.getElementById('status').innerHTML = 'Downloading face_detector.caffemodel';
-    utils.createFileFromUrl('face_detector.caffemodel', weights, () => {
-      document.getElementById('status').innerHTML = 'Downloading yawn_model_onnx_30.onnx';
-      utils.createFileFromUrl('yawn_model_onnx_30.onnx', onnx_yawn, () => {
+  var onnx_yawn_name = 'yawn_model_onnx_60.onnx';
+  var face_caffe_weights = 'face_detector.caffemodel';
+  var face_caffe_config = 'face_detector.prototxt';
+
+  console.log('Load config ' + face_caffe_config);
+  utils.createFileFromUrl(face_caffe_config, proto, () => {
+    document.getElementById('status').innerHTML = 'Downloading ' + face_caffe_weights;
+    utils.createFileFromUrl(face_caffe_weights, weights, () => {
+      document.getElementById('status').innerHTML = 'Downloading ' + onnx_yawn_name;
+      utils.createFileFromUrl(onnx_yawn_name, onnx_yawn, () => {
         document.getElementById('status').innerHTML = '';
-          netDet = cv.readNetFromCaffe('face_detector.prototxt', 'face_detector.caffemodel');
-          console.log('Loaded Caffe-based Face Detection');
-          netDetYawn = cv.readNetFromONNX('yawn_model_onnx_30.onnx');
-          console.log('Loaded ONNX-based Mouth Detection');
+          netDet = cv.readNetFromCaffe(face_caffe_config, face_caffe_weights);
+          console.log('Loaded Caffe face model');
+          netDetYawn = cv.readNetFromONNX(onnx_yawn_name);
+          console.log('Loaded ONNX Mouth model');
           callback();
       });
     });

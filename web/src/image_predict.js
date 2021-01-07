@@ -1,9 +1,10 @@
-if(typeof jQuery!=='undefined'){
+if(typeof jQuery!=='undefined') {
     console.log('jQuery Loaded');
-}
-else {
+} else {
     console.log('jQuery not loaded yet');
 }
+
+var js_model = 'https://raw.githubusercontent.com/iglaweb/YawnMouthOpenDetect/master/out_epoch_60/tfjs_model_60/model.json'
 
 $("#image-selector").change(function () {
 	let reader = new FileReader();
@@ -17,14 +18,10 @@ $("#image-selector").change(function () {
 	reader.readAsDataURL(file);
 });
 
-async function init_models (is_camera) {
-	cur_page = window.location.href
-	console.log(cur_page);
-	var is_camera = cur_page.indexOf("/camera") > -1;
-	console.log(is_camera);
+async function init_models() {
 	$('.progress-bar').show();
 	try {
-		model = await tf.loadLayersModel(is_camera ? '../tfjs_model_60/model.json' : 'tfjs_model_60/model.json');
+		model = await tf.loadLayersModel(js_model);
 	} catch(e) {
 		console.log("the model could not be loaded")
 		console.log(e)
@@ -35,7 +32,7 @@ async function init_models (is_camera) {
 
 
 let model;
-$(document).ready(init_models(true));
+$(document).ready(init_models());
 
 predict_image = async function (image) {
 	let pre_image = tf.browser.fromPixels(image, 1)
