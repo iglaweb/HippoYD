@@ -224,9 +224,13 @@ history_dict.keys()
 train_utils.summarize_diagnostics(history_dict, OUTPUT_FOLDER)
 
 # evaluate the accuracy of our model:
-final_loss, final_accuracy = model.evaluate(valid_generator, verbose=1)
+final_loss, final_accuracy, f1_score, precision, recall = model.evaluate(valid_generator, verbose=1)
 print("Final loss: {:.2f}".format(final_loss))
 print("Final accuracy: {:.2f}%".format(final_accuracy * 100))
+
+print("F1: {:.2f}".format(f1_score))
+print("Precision: {:.2f}".format(precision))
+print("Recall: {:.2f}".format(recall))
 
 STEP_SIZE_TEST = valid_generator.n // valid_generator.batch_size
 valid_generator.reset()

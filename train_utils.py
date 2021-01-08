@@ -4,8 +4,11 @@ import tempfile
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
+
 from tensorflow import keras
 from tensorflow.keras import layers
+
+from tensorflow.keras import backend as K
 
 # plot diagnostic learning curves
 from yawn_train.model_config import IMAGE_PAIR_SIZE
@@ -66,6 +69,26 @@ def summarize_diagnostics(history_dict, output_folder):
     plt.show()
 
 
+def recall_m(y_true, y_pred):
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+    recall = true_positives / (possible_positives + K.epsilon())
+    return recall
+
+
+def precision_m(y_true, y_pred):
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+    precision = true_positives / (predicted_positives + K.epsilon())
+    return precision
+
+
+def f1_m(y_true, y_pred):
+    precision = precision_m(y_true, y_pred)
+    recall = recall_m(y_true, y_pred)
+    return 2 * ((precision * recall) / (precision + recall + K.epsilon()))
+
+
 def create_model(input_shape) -> keras.Model:
     # Note that when using the delayed-build pattern (no input shape specified),
     # the model gets built the first time you call `fit`, `eval`, or `predict`,
@@ -87,73 +110,7 @@ def create_model(input_shape) -> keras.Model:
     model.add(layers.Dense(1, activation='sigmoid'))  # Fully connected layer
     # compile model
     opt = keras.optimizers.SGD(lr=0.001, momentum=0.9)
-    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=['accuracy'])
-    return model
-
-
-def create_model_old(input_shape, num_classes) -> keras.Model:
-    # Let's then add a Flatten layer that flattens the input image, which then feeds into the next layer, a Dense layer, or fully-connected layer, with 128 hidden units. Finally, because our goal is to perform binary classification, our final layer will be a sigmoid, so that the output of our network will be a single scalar between 0 and 1, encoding the probability that the current image is of class 1 (class 1 being grass and class 0 being dandelion).
-    # model = tf.keras.models.Sequential([tf.keras.layers.Flatten(input_shape=(IMAGE_SIZE, IMAGE_SIZE, 1)),
-    #                                   tf.keras.layers.Dense(128, activation=tf.nn.relu),
-    #                                  tf.keras.layers.Dense(1, activation=tf.nn.sigmoid)])
-    data_augmentation = keras.Sequential(
-        [
-            layers.experimental.preprocessing.RandomFlip("horizontal"),
-            layers.experimental.preprocessing.RandomRotation(0.1),
-        ]
-    )
-    inputs = keras.Input(shape=input_shape)
-    x = data_augmentation(inputs)
-    # Entry block
-    x = layers.experimental.preprocessing.Rescaling(1.0 / 255)(x)
-    x = layers.Conv2D(32, 3, strides=2, padding="same")(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation("relu")(x)
-
-    x = layers.Conv2D(64, 3, padding="same")(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation("relu")(x)
-
-    previous_block_activation = x  # Set aside residual
-
-    for size in [128, 256, 512, 728]:
-        x = layers.Activation("relu")(x)
-        x = layers.SeparableConv2D(size, 3, padding="same")(x)
-        x = layers.BatchNormalization()(x)
-
-        x = layers.Activation("relu")(x)
-        x = layers.SeparableConv2D(size, 3, padding="same")(x)
-        x = layers.BatchNormalization()(x)
-
-        x = layers.MaxPooling2D(3, strides=2, padding="same")(x)
-
-        # Project residual
-        residual = layers.Conv2D(size, 1, strides=2, padding="same")(
-            previous_block_activation
-        )
-        x = layers.add([x, residual])  # Add back residual
-        previous_block_activation = x  # Set aside next residual
-
-    x = layers.SeparableConv2D(1024, 3, padding="same")(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation("relu")(x)
-
-    x = layers.GlobalAveragePooling2D()(x)
-    if num_classes == 2:
-        activation = "sigmoid"
-        units = 1
-    else:
-        activation = "softmax"
-        units = num_classes
-
-    x = layers.Dropout(0.5)(x)
-    outputs = layers.Dense(units, activation=activation)(x)
-    model = keras.Model(inputs, outputs)
-
-    # configure the specifications for model training. We will train our model with the binary_crossentropy loss. We will use the Adam optimizer. Adam is a sensible optimization algorithm because it automates learning-rate tuning for us
-    model.compile(optimizer=tf.optimizers.Adam(),
-                  loss='binary_crossentropy',
-                  metrics=['accuracy'])  # , 'mse', 'mae', 'mape'])
+    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=['accuracy', f1_m, precision_m, recall_m])
     return model
 
 
