@@ -1,0 +1,4 @@
+[submodule "mouth-js-web"]
+	path = mouth-js-web
+	url = https://github.com/iglaweb/mouth-open-js
+	branch = master
