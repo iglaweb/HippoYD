@@ -3,23 +3,23 @@ from pathlib import Path
 
 import cv2
 import dlib
+import imutils
 import numpy
+import numpy as np
 from imutils import face_utils
-from pandas import np
-from scipy.spatial import distance as dist
 
 # define one constants, for mouth aspect ratio to indicate open mouth
-from yawn_train import download_utils
+from yawn_train import download_utils, detect_utils
 from yawn_train.model_config import MOUTH_AR_THRESH, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT
 
-MOUTH_FOLDER = "./mouth_state"
+MOUTH_FOLDER = "./mouth_state_new"
 MOUTH_OPENED_FOLDER = f"{MOUTH_FOLDER}/opened"
 MOUTH_CLOSED_FOLDER = f"{MOUTH_FOLDER}/closed"
 
 TEMP_FOLDER = "./temp"
 
 # https://ieee-dataport.org/open-access/yawdd-yawning-detection-dataset#files
-YAWDD_DATASET_FOLDER = "/Users/igla/Downloads/YawDD dataset"
+YAWDD_DATASET_FOLDER = "./YawDD dataset"
 
 mouth_open_counter = 0
 mouth_close_counter = 0
@@ -33,13 +33,27 @@ Path(MOUTH_CLOSED_FOLDER).mkdir(parents=True, exist_ok=True)
 dlib_landmarks_file = download_utils.download_and_unpack_dlib_68_landmarks(TEMP_FOLDER)
 # dlib predictor for 68pts, mouth
 predictor = dlib.shape_predictor(dlib_landmarks_file)
+# initialize dlib's face detector (HOG-based)
+detector = dlib.get_frontal_face_detector()
 
 caffe_weights, caffe_config = download_utils.download_caffe(TEMP_FOLDER)
 # Reads the network model stored in Caffe framework's format.
 face_model = cv2.dnn.readNetFromCaffe(caffe_config, caffe_weights)
 
 
-def detect_face(image):
+def detect_face_dlib(image) -> list:
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # detect faces in the grayscale image
+    rects = detector(gray, 1)
+    rect_list = []
+    # loop over the face detections
+    for (i, rect) in enumerate(rects):
+        (x, y, w, h) = face_utils.rect_to_bb(rect)
+        rect_list.append((x, y, x + w, y + h))
+    return rect_list
+
+
+def detect_face_caffe(image) -> list:
     # accessing the image.shape tuple and taking the elements
     (h, w) = image.shape[:2]  # get our blob which is our input image
     blob = cv2.dnn.blobFromImage(cv2.resize(image, (300, 300)), 1.0, (300, 300),
@@ -56,33 +70,6 @@ def detect_face(image):
             # print('Face confidence: ' + str(confidence))
             rect_list.append((startX, startY, endX, endY))
     return rect_list
-
-
-def mouth_aspect_ratio(mouth) -> float:
-    # compute the euclidean distances between the two sets of
-    # vertical mouth landmarks (x, y)-coordinates
-    A = dist.euclidean(mouth[2], mouth[10])  # 51, 59
-    B = dist.euclidean(mouth[4], mouth[8])  # 53, 57
-
-    # compute the euclidean distance between the horizontal
-    # mouth landmark (x, y)-coordinates
-    C = dist.euclidean(mouth[0], mouth[6])  # 49, 55
-    # compute the mouth aspect ratio
-    mar = (A + B) / (2.0 * C)
-    return mar
-
-
-def resize_img(frame_crop, max_width, max_height):
-    height, width = frame_crop.shape[:2]
-    # only shrink if img is bigger than required
-    if max_height < height or max_width < width:
-        # get scaling factor
-        scaling_factor = max_height / float(height)
-        if max_width / float(width) < scaling_factor:
-            scaling_factor = max_width / float(width)
-        # resize image
-        frame_crop = cv2.resize(frame_crop, None, fx=scaling_factor, fy=scaling_factor, interpolation=cv2.INTER_AREA)
-    return frame_crop
 
 
 def recognize_image(frame, face_rect, video_path):
@@ -114,7 +101,7 @@ def recognize_image(frame, face_rect, video_path):
     # coordinates to compute the mouth aspect ratio
     mouth = shape[mStart:mEnd]
 
-    mouth_mar = mouth_aspect_ratio(mouth)
+    mouth_mar = detect_utils.mouth_aspect_ratio(mouth)
     # compute the convex hull for the mouth, then
     # visualize the mouth
     # mouthHull = cv2.convexHull(mouth)
@@ -132,7 +119,7 @@ def recognize_image(frame, face_rect, video_path):
         return
 
     gray_img = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
-    gray_img = resize_img(gray_img, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT)
+    gray_img = detect_utils.resize_img(gray_img, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT)
 
     if mouth_mar >= MOUTH_AR_THRESH:
         global mouth_open_counter
@@ -144,10 +131,15 @@ def recognize_image(frame, face_rect, video_path):
         cv2.imwrite(f'{MOUTH_CLOSED_FOLDER}/image_{mouth_close_counter}_{mouth_mar}.jpg', gray_img)
 
 
-def process_video(video):
+def process_video(video_path):
     total_img_counter = 0
-    face_img_counter = 0
-    cap = cv2.VideoCapture(video)
+    face_dlib_counter = 0
+    face_caffe_counter = 0
+    cap = cv2.VideoCapture(video_path)
+    if cap.isOpened() is False:
+        print('Video is not opened', video_path)
+        return
+    is_prev_img_dlib = False  # by turns
     while True:
         _, frame = cap.read()
         if frame is None:
@@ -159,22 +151,36 @@ def process_video(video):
             continue
 
         total_img_counter = total_img_counter + 1
-        # reduce size
+        # reduce img count
         if total_img_counter % 2 != 0:
             continue
 
-        face_list = detect_face(frame)
-        if len(face_list) == 0:
-            print('Face not found')
-            # cv2.imshow('Image', frame)
-            # cv2.waitKey(1)
+        face_list_dlib = detect_face_dlib(frame)
+        if len(face_list_dlib) == 0:
+            # skip images not recognized by dlib (dlib lndmrks only good when dlib face found)
             continue
 
-        face_img_counter = face_img_counter + 1
-        recognize_image(frame, face_list[0], video)
+        if is_prev_img_dlib is False:
+            is_prev_img_dlib = True
+            recognize_image(frame, face_list_dlib[0], video_path)
+            face_dlib_counter = face_dlib_counter + 1
+            continue
 
-    video_name = os.path.basename(video)
-    print(f"Total images: {total_img_counter}, collected: {face_img_counter} images in video {video_name}")
+        if is_prev_img_dlib is True:
+            is_prev_img_dlib = False
+            face_list_dnn = detect_face_caffe(frame)
+            if len(face_list_dnn) == 0:
+                print('Face not found')
+                # cv2.imshow('Image', frame)
+                # cv2.waitKey(1)
+                continue
+
+            recognize_image(frame, face_list_dnn[0], video_path)
+            face_caffe_counter = face_caffe_counter + 1
+
+    video_name = os.path.basename(video_path)
+    print(
+        f"Total images: {total_img_counter}, collected dlib: {face_dlib_counter} images, collected Caffe: {face_caffe_counter} images in video {video_name}")
     cap.release()
     cv2.destroyAllWindows()
 
