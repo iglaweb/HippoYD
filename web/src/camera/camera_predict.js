@@ -1,11 +1,34 @@
+let blazeface_model = null;
+const state = {
+  backend: 'wasm'
+};
+const setupPage = async () => {
+  await tf.setBackend(state.backend);
+  blazeface_model = await blazeface.load();
+  console.log('Loaded blazeface model');
+};
+setupPage();
+
+
 if(typeof jQuery!=='undefined') {
     console.log('jQuery Loaded');
 } else {
     console.log('jQuery not loaded yet');
 }
 
+const face_model_types = {
+	blazeface: "blazeface",
+	cascade: "cascadeHaar",
+	caffe: "caffe"
+}
+face_model_type = face_model_types.blazeface;
+
+
+
+let useFaceCascade = false;
 let mouthCounter = 0;
 
+var cascadeClassifier = undefined;
 var netDet = undefined;
 var netDetYawn = undefined;
 // whether streaming video from the camera.
@@ -22,9 +45,59 @@ let frameGray = null;
 
 let enableWebcamButton = null;
 
-//! [Run face detection model]
-function detectFaces(img) {
 
+function detectFacesCascade(img) {
+    var ret = [];
+    let faces = new cv.RectVector();
+    cascadeClassifier.detectMultiScale(img, faces, 1.1, 3, 0);
+    for (let i = 0; i < faces.size(); ++i) {
+        let face = faces.get(i);
+        var left = face.x;
+        var top = face.y;
+        var right = face.x + face.width;
+        var bottom = face.y + face.height;
+        if (left < right && top < bottom) {
+          ret.push({x: left, y: top, width: right - left, height: bottom - top})
+        }
+    }
+    return ret;
+}
+
+async function detectFacesBlazeface() {
+  const returnTensors = false;
+  const flipHorizontal = false;
+  const annotateBoxes = true;
+  const predictions = await blazeface_model.estimateFaces(
+    camera, returnTensors, flipHorizontal, annotateBoxes);
+  var faces = [];
+  for (let i = 0; i < predictions.length; i++) {
+    const start = predictions[i].topLeft;
+    const end = predictions[i].bottomRight;
+    var left = start[0];
+    var top = start[1];
+    var right = end[0];
+    var bottom = end[1];
+
+    var height_h = (bottom - top) * 0.2;
+    top = Math.max(0, top - height_h);
+    bottom = Math.min(camera.height, bottom + height_h);
+
+    const size = [end[0] - start[0], end[1] - start[1]];
+    console.log(size);
+    console.log(left + "," + top + "," + right + "," + bottom);
+    
+    prob = predictions[i].probability[0];
+    console.log('Prob: ' + prob);
+
+    if (prob > 0.2 && left < right && top < bottom) {
+      faces.push({x: left, y: top, width: right - left, height: bottom - top});
+    }
+  }
+  return faces;
+}
+
+//! [Run face detection model]
+function detectFacesDnn(img) {
   var blob = cv.blobFromImage(img, 1, {width: 192, height: 144}, [104, 117, 123, 0], false, false);
   netDet.setInput(blob);
   var out = netDet.forward();
@@ -75,26 +148,39 @@ function loadModels(callback) {
   var proto = 'https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy_lowres.prototxt';
   var weights = 'https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20180205_fp16/res10_300x300_ssd_iter_140000_fp16.caffemodel';
   var onnx_yawn = 'https://raw.githubusercontent.com/iglaweb/YawnMouthOpenDetect/master/out_epoch_60/yawn_model_onnx_60.onnx';
-  
+  var face_cascade_url = 'https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml';
+
   var onnx_yawn_name = 'yawn_model_onnx_60.onnx';
   var face_caffe_weights = 'face_detector.caffemodel';
   var face_caffe_config = 'face_detector.prototxt';
+  var face_cascade = 'haarcascade_frontalface_default.xml';
 
-  console.log('Load config ' + face_caffe_config);
-  utils.createFileFromUrl(face_caffe_config, proto, () => {
-    document.getElementById('status').innerHTML = 'Downloading ' + face_caffe_weights;
-    utils.createFileFromUrl(face_caffe_weights, weights, () => {
-      document.getElementById('status').innerHTML = 'Downloading ' + onnx_yawn_name;
-      utils.createFileFromUrl(onnx_yawn_name, onnx_yawn, () => {
-        document.getElementById('status').innerHTML = '';
-          netDet = cv.readNetFromCaffe(face_caffe_config, face_caffe_weights);
-          console.log('Loaded Caffe face model');
-          netDetYawn = cv.readNetFromONNX(onnx_yawn_name);
-          console.log('Loaded ONNX Mouth model');
-          callback();
+
+  document.getElementById('status').innerHTML = 'Downloading ' + face_cascade;
+
+  utils.createFileFromUrl(face_cascade, face_cascade_url, () => {
+    document.getElementById('status').innerHTML = 'Downloading ' + face_caffe_config;
+
+    utils.createFileFromUrl(face_caffe_config, proto, () => {
+      document.getElementById('status').innerHTML = 'Downloading ' + face_caffe_weights;
+      utils.createFileFromUrl(face_caffe_weights, weights, () => {
+        document.getElementById('status').innerHTML = 'Downloading ' + onnx_yawn_name;
+        utils.createFileFromUrl(onnx_yawn_name, onnx_yawn, () => {
+          document.getElementById('status').innerHTML = '';
+
+            cascadeClassifier = new cv.CascadeClassifier();
+            cascadeClassifier.load(face_cascade);             // load pre-trained classifiers
+
+            netDet = cv.readNetFromCaffe(face_caffe_config, face_caffe_weights);
+            console.log('Loaded Caffe face model');
+            netDetYawn = cv.readNetFromONNX(onnx_yawn_name);
+            console.log('Loaded ONNX Mouth model');
+            callback();
+        });
       });
     });
   });
+
 };
 
 function initUI() {
@@ -158,7 +244,7 @@ function startCamera() {
 }
 
 //! [Define frames processing]
-function captureFrame() {
+async function captureFrame() {
     if (!streaming) {
         // clean and stop.
         return;
@@ -169,10 +255,20 @@ function captureFrame() {
     stats.begin();
     cv.cvtColor(frame, frameBGR, cv.COLOR_RGBA2BGR);
 
-    const start = performance.now();
-    var faces = detectFaces(frameBGR);
-    const time  = Math.round(performance.now() - start);
-    console.log('Face inference time: ' + time + ' ms');
+    var faces = null;
+    if(face_model_type == face_model_types.blazeface) {
+      const start_ = performance.now();
+      faces = await detectFacesBlazeface();
+      const time_  = Math.round(performance.now() - start_);
+      console.log('Blazeface inference time: ' + time_ + ' ms');
+    } else {
+      const start = performance.now();
+      console.warn('Detect faces');
+      faces = face_model_type == face_model_types.cascade ? detectFacesCascade(frameBGR) : detectFacesDnn(frameBGR);
+      const time  = Math.round(performance.now() - start);
+      console.log('Face inference time: ' + time + ' ms');
+    }
+    console.log("Faces: " +  faces.length);
 
     faces.forEach(function(rect) {
       cv.rectangle(frame, {x: rect.x, y: rect.y}, {x: rect.x + rect.width, y: rect.y + rect.height}, [0, 255, 0, 255]);
@@ -182,15 +278,15 @@ function captureFrame() {
       console.log('Predict image');
 
       const start = performance.now();
-	  var yawn_ret = detectYawnProbability(frameGray);
-	  console.log(yawn_ret[0]);
-      var yawn_prob = Math.round(yawn_ret[0] * 100) / 100;
-      const time  = Math.round(performance.now() - start);
-      console.log('Yawn inference time: ' + time + ' ms');
-      console.log('Prediction: ' + yawn_prob);
+      var yawn_ret = detectYawnProbability(frameGray);
+      console.log(yawn_ret[0]);
+        var yawn_prob = Math.round(yawn_ret[0] * 100) / 100;
+        const time  = Math.round(performance.now() - start);
+        console.log('Yawn inference time: ' + time + ' ms');
+        console.log('Prediction: ' + yawn_prob);
 
-	  if(yawn_prob > 0.2) {
-		mouthCounter++;
+      if(yawn_prob > 0.2) {
+      mouthCounter++;
 	  }
 	  var mouth_opened_str = yawn_prob > 0.2 ? "Mouth: opened" : "Mouth: closed";
 	  var counter_str = "Counter: " + mouthCounter;
@@ -261,7 +357,7 @@ function main() {
         enableWebcamButton.innerHTML = 'Stop';
         enableWebcamButton.disabled = false;
       }
-      if (netDet == undefined || netDetYawn == undefined) {
+      if (netDet == undefined || netDetYawn == undefined || cascadeClassifier == undefined) {
         enableWebcamButton.disabled = true;
         loadModels(run);  // Load models and run a pipeline;
       } else {

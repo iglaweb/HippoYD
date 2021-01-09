@@ -4,7 +4,7 @@ if(typeof jQuery!=='undefined') {
     console.log('jQuery not loaded yet');
 }
 
-var js_model = 'https://raw.githubusercontent.com/iglaweb/YawnMouthOpenDetect/master/out_epoch_60/tfjs_model_60/model.json'
+var js_model_url = 'https://raw.githubusercontent.com/iglaweb/YawnMouthOpenDetect/master/out_epoch_60/tfjs_model_60/model.json'
 
 $("#image-selector").change(function () {
 	let reader = new FileReader();
@@ -21,7 +21,7 @@ $("#image-selector").change(function () {
 async function init_models() {
 	$('.progress-bar').show();
 	try {
-		model = await tf.loadLayersModel(js_model);
+		yawn_js_model = await tf.loadLayersModel(js_model_url);
 	} catch(e) {
 		console.log("the model could not be loaded")
 		console.log(e)
@@ -31,7 +31,7 @@ async function init_models() {
 }
 
 
-let model;
+let yawn_js_model;
 $(document).ready(init_models());
 
 predict_image = async function (image) {
@@ -42,23 +42,7 @@ predict_image = async function (image) {
 		.div(255.0)
 		.reverse(-1);
 	console.log(pre_image);
-	let predict_result = await model.predict(pre_image).data();
-	let probability = predict_result[0];
-	return probability;
-}
-
-function predict_image_sync(image) {
-	console.log('Resolve image');
-	console.log(image);
-	let pre_image = tf.browser.fromPixels(image, 1)
-		.resizeNearestNeighbor([100, 100])
-		.expandDims()
-		.toFloat()
-		.div(255.0)
-		.reverse(-1);
-	console.log('Image prepared');
-	console.log(pre_image);
-	let predict_result = model.predict(pre_image).data();
+	let predict_result = await yawn_js_model.predict(pre_image).data();
 	let probability = predict_result[0];
 	return probability;
 }
