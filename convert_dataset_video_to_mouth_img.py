@@ -1,9 +1,14 @@
 import os
+import sys
 from pathlib import Path
+
+# adapt paths for jupyter
+module_path = os.path.abspath(os.path.join('..'))
+if module_path not in sys.path:
+    sys.path.append(module_path)
 
 import cv2
 import dlib
-import imutils
 import numpy
 import numpy as np
 from imutils import face_utils
@@ -182,7 +187,14 @@ def process_video(video_path):
     print(
         f"Total images: {total_img_counter}, collected dlib: {face_dlib_counter} images, collected Caffe: {face_caffe_counter} images in video {video_name}")
     cap.release()
-    cv2.destroyAllWindows()
+
+    # The function is not implemented. Rebuild the library with Windows, GTK+ 2.x or Cocoa support. If you are on
+    # Ubuntu or Debian, install libgtk2.0-dev and pkg-config, then re-run cmake or configure script in function
+    # 'cvDestroyAllWindows'
+    try:
+        cv2.destroyAllWindows()
+    except:
+        print('No destroy windows')
 
 
 def process_videos():
