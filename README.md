@@ -6,11 +6,11 @@ This is a mouth openness detection model. Full training code, data preparation s
 
 ## Image Dataset
 
-The model was trained using video dataset [YawDD](https://ieee-dataport.org/open-access/yawdd-yawning-detection-dataset#files).
+The model was trained using video dataset [YawDD][1].
 
 ## How to train
 
-1. Convert [YawDD](https://ieee-dataport.org/open-access/yawdd-yawning-detection-dataset#files) dataset to image folders, 2 classes: `closed` and `opened`
+1. Convert [YawDD][1] dataset to image folders, 2 classes: `closed` and `opened`
 ```bash
 python convert_dataset_video_to_mouth_img.py
 ```
@@ -24,7 +24,7 @@ python train_yawn.py
 ```
 
 
-## Available pretrained models and demos
+## Available [pretrained models](out_epoch_60/) and demos
 
 <table>
 	<tbody>
@@ -32,26 +32,37 @@ python train_yawn.py
          <th>Model</th>
          <th>Epochs</th>
          <th>Example of inference</th>
+         <th>Demo</th>
 		</tr>
       <tr>
 			<td>SavedModel / Keras H5</td>
          <td>60</td>
-			<td><a href='https://github.com/iglaweb/YawnMouthOpenDetect/blob/master/run_yawn_inference_tf.py'>run_yawn_inference_tf.py</a></td>
+			<td><a href='run_yawn_inference_tf.py'>run_yawn_inference_tf.py</a></td>
+         <td></td>
 		</tr>
       <tr>
 			<td>TFLite</td>
          <td>60</td>
-			<td><a href='https://github.com/iglaweb/YawnMouthOpenDetect/blob/master/run_yawn_inference_tflite.py'>run_yawn_inference_tflite.py</a></td>
+			<td><a href='run_yawn_inference_tflite.py'>run_yawn_inference_tflite.py</a></td>
+         <td></td>
 		</tr>
       <tr>
 			<td>TensorFlowJS</td>
          <td>60</td>
-			<td><a href='https://github.com/iglaweb/mouth-open-js/blob/master/image_predict.js'>image_predict.js</a></td>
+			<td><a href='image_predict.js'>image_predict.js</a></td>
+         <td><a href='https://igla.su/mouth-open-js/'>https://igla.su/mouth-open-js/</a></td>
 		</tr>
 		<tr>
 			<td>ONNX</td>
          <td>60</td>
-			<td><a href='https://github.com/iglaweb/YawnMouthOpenDetect/blob/master/run_yawn_inference_onnx.py'>run_yawn_inference_onnx.py</a></td>
+			<td><a href='run_yawn_inference_onnx.py'>run_yawn_inference_onnx.py</a></td>
+         <td></td>
+		</tr>
+      <tr>
+			<td>Frozen pb</td>
+         <td>60</td>
+			<td><a href='run_yawn_inference_pb.py'>run_yawn_inference_pb.py</a></td>
+         <td></td>
 		</tr>
 	</tbody>
 </table>
@@ -60,14 +71,14 @@ python train_yawn.py
 <table>
 	<tbody>
 		<tr>
-            <th>Configuration</th>
-            <th>Config</th>
-            <th>Model</th>
-            <th>Time (avg)</th>
-            <th>FPS</th>
+         <th>Configuration</th>
+         <th>Config</th>
+         <th>Model</th>
+         <th>Time (avg)</th>
+         <th>FPS</th>
 		</tr>
       <tr>
-			<td rowspan="4">Macbook Pro, CPU<br/>2 GHz Quad-Core Intel Core i5</td>
+			<td rowspan="5">Macbook Pro, CPU<br/>2 GHz Quad-Core Intel Core i5</td>
          <td>CPU</td>
 			<td>TFLite (Floating)</td>
          <td>3-5 ms</td>
@@ -87,9 +98,15 @@ python train_yawn.py
 		</tr>
       <tr>
          <td>CPU</td>
-			<td>ONNX (Floating)</td>
+			<td>ONNX</td>
          <td>2-3 ms</td>
          <td>500</td>
+		</tr>
+      <tr>
+         <td>CPU</td>
+			<td>Frozen pb</td>
+         <td>3-5 ms</td>
+         <td>250</td>
 		</tr>
 	</tbody>
 </table>
@@ -121,3 +138,5 @@ feel free to file an [issue](https://github.com/iglaweb/YawnMouthOpenDetect/issu
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
+
+[1]: https://ieee-dataport.org/open-access/yawdd-yawning-detection-dataset#files "YawDD dataset"
