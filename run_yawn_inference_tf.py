@@ -136,7 +136,7 @@ def image_reader(frame, face):
 if __name__ == '__main__':
     # test http://cv.cs.nthu.edu.tw/php/callforpaper/datasets/DDD/ ?
     # https://sites.google.com/view/utarldd/home
-    predict_image_path('./mouth_state/val/closed/image_74637_0.53.jpg')
+    # predict_image_path('./mouth_state/val/closed/image_74637_0.53.jpg')
     clear_test()
 
     video_face_detector = VideoFaceDetector(VIDEO_FILE, face_model)

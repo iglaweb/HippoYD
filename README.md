@@ -4,18 +4,59 @@
 
 This is a mouth openness detection model. Full training code, data preparation scripts, and pretrained models are in the repository.
 
-
-## How to use the pretrained model
-
-To use the pretrained model you will need to download `run_yawn_inference.py` and  
-a tensorflow model (`.tflite`, `.h5` or `saved model`).
-
-
 ## Image Dataset
+
 The model was trained using video dataset [YawDD](https://ieee-dataport.org/open-access/yawdd-yawning-detection-dataset#files).
 
-## Model Inference
+## How to train
 
+1. Convert [YawDD](https://ieee-dataport.org/open-access/yawdd-yawning-detection-dataset#files) dataset to image folders, 2 classes: `closed` and `opened`
+```bash
+python convert_dataset_video_to_mouth_img.py
+```
+2. Split data into 3 datasets: `train`, `validation`, `test`
+```bash
+python split_data_into_datasets.py
+```
+3. Train data with:
+```bash
+python train_yawn.py
+```
+
+
+## Available pretrained models and demos
+
+<table>
+	<tbody>
+		<tr>
+         <th>Model</th>
+         <th>Epochs</th>
+         <th>Example of inference</th>
+		</tr>
+      <tr>
+			<td>SavedModel / Keras H5</td>
+         <td>60</td>
+			<td><a href='https://github.com/iglaweb/YawnMouthOpenDetect/blob/master/run_yawn_inference_tf.py'>run_yawn_inference_tf.py</a></td>
+		</tr>
+      <tr>
+			<td>TFLite</td>
+         <td>60</td>
+			<td><a href='https://github.com/iglaweb/YawnMouthOpenDetect/blob/master/run_yawn_inference_tflite.py'>run_yawn_inference_tflite.py</a></td>
+		</tr>
+      <tr>
+			<td>TensorFlowJS</td>
+         <td>60</td>
+			<td><a href='https://github.com/iglaweb/mouth-open-js/blob/master/image_predict.js'>image_predict.js</a></td>
+		</tr>
+		<tr>
+			<td>ONNX</td>
+         <td>60</td>
+			<td><a href='https://github.com/iglaweb/YawnMouthOpenDetect/blob/master/run_yawn_inference_onnx.py'>run_yawn_inference_onnx.py</a></td>
+		</tr>
+	</tbody>
+</table>
+
+## Model Inference
 <table>
 	<tbody>
 		<tr>
