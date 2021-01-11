@@ -29,7 +29,6 @@ python split_data_into_datasets.py
 python train_yawn.py
 ```
 
-
 ## Available [pretrained models](out_epoch_60/) and demos
 
 <table>
@@ -84,35 +83,41 @@ python train_yawn.py
          <th>FPS</th>
 		</tr>
       <tr>
-			<td rowspan="5">Macbook Pro, CPU<br/>2 GHz Quad-Core Intel Core i5</td>
+			<td rowspan="6">Macbook Pro, CPU<br/>2 GHz Quad-Core Intel Core i5</td>
          <td>CPU</td>
 			<td>TFLite (Floating)</td>
-         <td>3-5 ms</td>
+         <td>5 ms</td>
          <td>250</td>
 		</tr>
       <tr>
          <td>CPU</td>
 			<td>TFLite (Quantized)</td>
-         <td>6-8 ms</td>
+         <td>8 ms</td>
          <td>140</td>
 		</tr>
 		<tr>
          <td>CPU</td>
 			<td>Keras H5 (Floating)</td>
-         <td>40-50 ms</td>
+         <td>50 ms</td>
          <td>20</td>
 		</tr>
       <tr>
          <td>CPU</td>
 			<td>ONNX</td>
-         <td>2-3 ms</td>
+         <td>2 ms</td>
          <td>500</td>
 		</tr>
       <tr>
          <td>CPU</td>
 			<td>Frozen pb</td>
-         <td>3-5 ms</td>
+         <td>4 ms</td>
          <td>250</td>
+		</tr>
+      <tr>
+         <td>Wasm (Safari 14.0, Firefox 84)</td>
+			<td>TensorFlowJS</td>
+         <td>30 ms</td>
+         <td>30</td>
 		</tr>
 	</tbody>
 </table>
