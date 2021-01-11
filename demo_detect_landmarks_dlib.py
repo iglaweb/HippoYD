@@ -2,12 +2,15 @@ import cv2
 import dlib
 from imutils import face_utils
 
-from yawn_train import detect_utils
+from yawn_train import detect_utils, download_utils
 
 (mStart, mEnd) = face_utils.FACIAL_LANDMARKS_IDXS["mouth"]
 
+TEMP_FOLDER = "./temp"
+dlib_landmarks_file = download_utils.download_and_unpack_dlib_68_landmarks(TEMP_FOLDER)
 # dlib predictor for 68pts, mouth
-predictor = dlib.shape_predictor('../dlib/shape_predictor_68_face_landmarks.dat')
+predictor = dlib.shape_predictor(dlib_landmarks_file)
+
 img = cv2.imread(
     '/Users/igla/PycharmProjects/DrowsinessClassification/yawn_train/mouth_state/opened/image_5842_0.7.jpg')
 

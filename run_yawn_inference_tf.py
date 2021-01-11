@@ -3,10 +3,8 @@ import os
 from pathlib import Path
 
 import cv2
-import dlib
 import numpy as np
 import tensorflow as tf
-from imutils import face_utils
 from tensorflow import keras
 
 from yawn_train import download_utils, inference_utils
@@ -36,12 +34,6 @@ TEMP_FOLDER = "./temp"
 
 # Provide trained KERAS model
 model = keras.models.load_model('./out_epoch_30/yawn_model_30.h5')
-
-# detect dlib landmarks for test
-try:
-    dlib_predictor = dlib.shape_predictor('../dlib/shape_predictor_68_face_landmarks2.dat')
-except RuntimeError:
-    dlib_predictor = None
 
 caffe_weights, caffe_config = download_utils.download_caffe(TEMP_FOLDER)
 # Reads the network model stored in Caffe framework's format.
@@ -98,13 +90,6 @@ def image_reader(frame, face):
 
     prediction = predict_image_data(img_expanded)
     print(prediction)
-
-    if dlib_predictor:
-        # determine the facial landmarks for the face region, then
-        height_frame, width_frame = frame_crop.shape[:2]
-        # https://pyimagesearch.com/wp-content/uploads/2017/04/facial_landmarks_68markup.jpg
-        shape = dlib_predictor(frame_crop, dlib.rectangle(0, 0, width_frame, height_frame))
-        shape = face_utils.shape_to_np(shape)
 
     cv2.imshow("Image", frame)
     cv2.waitKey(1)

@@ -38,10 +38,15 @@ def download_caffe(folder) -> (str, str):
 
 
 def download_and_unpack_dlib_68_landmarks(folder) -> str:
-    print('Downloading dlib landmarks file...')
     Path(folder).mkdir(parents=True, exist_ok=True)
     predictor_path = os.path.join(folder, "shape_predictor_68_face_landmarks.dat.bz2")
-    filepath = download(DLIB_LANDMARKS, predictor_path)
+
+    if os.path.exists(predictor_path) is False:
+        print('Downloading dlib landmarks file...')
+        filepath = download(DLIB_LANDMARKS, predictor_path)
+    else:
+        print(predictor_path + ' already exists')
+        filepath = predictor_path
 
     print('Unzipping file...')
     zipfile = bz2.BZ2File(filepath)  # open the file
