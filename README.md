@@ -1,8 +1,14 @@
-# Yawn Detection based on Mouth Openness
+# HippoYD: Yawn Detector using mouth
 
-# Overview
+## Overview
 
 This is a mouth openness detection model. Full training code, data preparation scripts, and pretrained models are in the repository.
+
+## Requirements
+
+*   Refer to
+    [requirements.txt](requirements.txt)
+    for dependent libraries that're needed to use the code.
 
 ## Image Dataset
 
@@ -110,12 +116,6 @@ python train_yawn.py
 		</tr>
 	</tbody>
 </table>
-
-
-## Requirements
-
-* tensorflow 2.+ (inference was tested using tensorflow 2.4.0-dev20200810)
-* opencv-python
 
 
 ## Issues
