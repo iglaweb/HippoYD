@@ -3,13 +3,14 @@ import sys
 from pathlib import Path
 
 # adapt paths for jupyter
+from yawn_train.ssd_face_detector import SSDFaceDetector
+
 module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
 
 import cv2
 import dlib
-import numpy
 import numpy as np
 from imutils import face_utils
 
@@ -44,6 +45,7 @@ detector = dlib.get_frontal_face_detector()
 caffe_weights, caffe_config = download_utils.download_caffe(TEMP_FOLDER)
 # Reads the network model stored in Caffe framework's format.
 face_model = cv2.dnn.readNetFromCaffe(caffe_config, caffe_weights)
+ssd_face_detector = SSDFaceDetector(face_model)
 
 
 def detect_face_dlib(image) -> list:
@@ -59,22 +61,7 @@ def detect_face_dlib(image) -> list:
 
 
 def detect_face_caffe(image) -> list:
-    # accessing the image.shape tuple and taking the elements
-    (h, w) = image.shape[:2]  # get our blob which is our input image
-    blob = cv2.dnn.blobFromImage(cv2.resize(image, (300, 300)), 1.0, (300, 300),
-                                 (104.0, 177.0, 123.0))  # input the blob into the model and get back the detections
-    face_model.setInput(blob)
-    detections = face_model.forward()
-    # Iterate over all of the faces detected and extract their start and end points
-    rect_list = []
-    for i in range(0, detections.shape[2]):
-        box = detections[0, 0, i, 3:7] * numpy.array([w, h, w, h])
-        (startX, startY, endX, endY) = box.astype("int")
-        confidence = detections[0, 0, i, 2]
-        if confidence >= 0.4:
-            # print('Face confidence: ' + str(confidence))
-            rect_list.append((startX, startY, endX, endY))
-    return rect_list
+    return ssd_face_detector.detect_face(image)
 
 
 def recognize_image(frame, face_rect, video_path):
