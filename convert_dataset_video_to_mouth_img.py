@@ -64,24 +64,29 @@ def detect_face_caffe(image) -> list:
     return ssd_face_detector.detect_face(image)
 
 
-def recognize_image(frame, face_rect, video_path):
-    (start_x, start_y, endX, endY) = face_rect
+"""
+Take mouth ratio only from dlib rect. Use dnn frame for output
+"""
+
+
+def recognize_image(video_path, frame, face_rect_dlib, face_rect_dnn=None):
+    (start_x, start_y, endX, endY) = face_rect_dlib
     start_x = max(start_x, 0)
     start_y = max(start_y, 0)
-    face_roi = frame[start_y:endY, start_x:endX]
+    face_roi_dlib = frame[start_y:endY, start_x:endX]
 
     # cv2.imshow('Gray', gray_img)
     # cv2.waitKey(0)
 
-    if face_roi is None:
+    if face_roi_dlib is None:
         print('Cropped face is None. Skip')
         return
 
     # determine the facial landmarks for the face region, then
-    height_frame, width_frame = face_roi.shape[:2]
+    height_frame, width_frame = face_roi_dlib.shape[:2]
 
     # https://pyimagesearch.com/wp-content/uploads/2017/04/facial_landmarks_68markup.jpg
-    shape = predictor(face_roi, dlib.rectangle(0, 0, width_frame, height_frame))
+    shape = predictor(face_roi_dlib, dlib.rectangle(0, 0, width_frame, height_frame))
     shape = face_utils.shape_to_np(shape)
 
     # loop over the (x, y)-coordinates for the facial landmarks
@@ -101,7 +106,6 @@ def recognize_image(frame, face_rect, video_path):
     # cv2.putText(frame, "MAR: {:.2f}".format(mouth_mar), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
     mouth_mar = round(mouth_mar, 2)
-
     video_name = os.path.basename(video_path)
     is_video_no_talking = video_name.endswith('-Normal.avi')
     is_mouth_opened = mouth_mar >= MOUTH_AR_THRESH
@@ -110,7 +114,16 @@ def recognize_image(frame, face_rect, video_path):
         # some videos may contain opened mouth, skip these situations
         return
 
-    gray_img = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
+    if face_rect_dnn is not None:
+        (start_x, start_y, endX, endY) = face_rect_dnn
+        start_x = max(start_x, 0)
+        start_y = max(start_y, 0)
+        face_roi_dnn = frame[start_y:endY, start_x:endX]
+        target_face_roi = face_roi_dnn
+    else:
+        target_face_roi = face_roi_dlib
+
+    gray_img = cv2.cvtColor(target_face_roi, cv2.COLOR_BGR2GRAY)
     gray_img = detect_utils.resize_img(gray_img, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT)
 
     if mouth_mar >= MOUTH_AR_THRESH:
@@ -154,7 +167,7 @@ def process_video(video_path):
 
         if is_prev_img_dlib is False:
             is_prev_img_dlib = True
-            recognize_image(frame, face_list_dlib[0], video_path)
+            recognize_image(video_path, frame, face_list_dlib[0])
             face_dlib_counter = face_dlib_counter + 1
             continue
 
@@ -163,11 +176,9 @@ def process_video(video_path):
             face_list_dnn = detect_face_caffe(frame)
             if len(face_list_dnn) == 0:
                 print('Face not found')
-                # cv2.imshow('Image', frame)
-                # cv2.waitKey(1)
                 continue
 
-            recognize_image(frame, face_list_dnn[0], video_path)
+            recognize_image(video_path, frame, face_list_dlib[0], face_list_dnn[0])
             face_caffe_counter = face_caffe_counter + 1
 
     video_name = os.path.basename(video_path)
