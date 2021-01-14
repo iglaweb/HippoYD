@@ -42,7 +42,7 @@ python train_yawn.py
       <tr>
 			<td>SavedModel / Keras H5</td>
          <td>60</td>
-			<td><a href='run_yawn_inference_tf.py'>run_yawn_inference_tf.py</a></td>
+			<td><a href='run_yawn_inference_tf_h5.py'>run_yawn_inference_tf_h5.py</a></td>
          <td></td>
 		</tr>
       <tr>
@@ -60,13 +60,13 @@ python train_yawn.py
 		<tr>
 			<td>ONNX</td>
          <td>60</td>
-			<td><a href='run_yawn_inference_onnx.py'>run_yawn_inference_onnx.py</a></td>
+			<td><a href='run_yawn_inference_onnx_cv.py'>run_yawn_inference_onnx_cv.py</a><br /><a href='run_yawn_inference_onnx_onnxruntime.py'>run_yawn_inference_onnx_onnxruntime.py</a></td>
          <td></td>
 		</tr>
       <tr>
 			<td>Frozen pb</td>
          <td>60</td>
-			<td><a href='run_yawn_inference_pb.py'>run_yawn_inference_pb.py</a></td>
+			<td><a href='run_yawn_inference_tf_pb.py'>run_yawn_inference_tf_pb.py</a></td>
          <td></td>
 		</tr>
 	</tbody>
