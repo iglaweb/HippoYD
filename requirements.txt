@@ -5,6 +5,7 @@ imutils==0.5.3
 keras_preprocessing==1.1.2
 matplotlib==3.3.3
 numpy==1.19.5
+onnxruntime==1.6.0
 scikit_learn==0.24.0
 scipy==1.6.0
 skimage==0.0
