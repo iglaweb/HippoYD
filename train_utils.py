@@ -411,6 +411,24 @@ def export_tflite_quant(output_model: str, saved_model: str):
     print('Saved quantized TFLite model to:', output_model)
 
 
+def evaluate_tflite_quant(quant_path, test_images, test_labels):
+    # test tflite quality
+    print('Evaluate quant TFLite model')
+    interpreter_quant = tf.lite.Interpreter(model_path=quant_path)
+    interpreter_quant.allocate_tensors()
+    test_accuracy_tflite_q = evaluate_model(interpreter_quant, test_images, test_labels)
+    print('Quantized TFLite test_accuracy:', test_accuracy_tflite_q)
+
+
+def evaluate_tflite_float(float_path, test_images, test_labels):
+    # test tflite quality
+    print('Evaluate float TFLite model')
+    interpreter_float = tf.lite.Interpreter(model_path=float_path)
+    interpreter_float.allocate_tensors()
+    test_accuracy_tflite_f = evaluate_model(interpreter_float, test_images, test_labels)
+    print('Floating TFLite test_accuracy:', test_accuracy_tflite_f)
+
+
 def listdir_fullpath(d):
     return [os.path.join(d, f) for f in os.listdir(d)]
 
@@ -448,7 +466,7 @@ def show_img_preview(out_path_img: str, img_class_paths1, img_class_paths2, thre
     plt.show()
 
 
-def plot_freq_imgs(opened_eye_img_paths: list, closed_eye_img_paths: list):
+def plot_freq_imgs(out_path_img: str, opened_eye_img_paths: list, closed_eye_img_paths: list):
     opened_freq = []
     closed_freq = []
     for image_path in opened_eye_img_paths:
@@ -465,6 +483,7 @@ def plot_freq_imgs(opened_eye_img_paths: list, closed_eye_img_paths: list):
     plt.legend()
     plt.xlabel('Open mouth probability')
     plt.ylabel('Frequency')
+    plt.savefig(out_path_img)
     plt.show()
 
 

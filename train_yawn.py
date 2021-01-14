@@ -84,6 +84,7 @@ INCLUDE_OPTIMIZER_WEIGHTS = False
 IS_PRUNE_MODEL = False
 IS_EVALUATE_TFLITE = False
 
+PLOT_IMAGE_FREQ_PATH = f'{OUTPUT_FOLDER}/plot_img_frequency.png'
 PLOT_IMAGE_PREVIEW = f'{OUTPUT_FOLDER}/plot_img_overview.png'
 TRAIN_HISTORY_CSV = f'{OUTPUT_FOLDER}/train_history.csv'
 ONNX_MODEL_PATH = f"{OUTPUT_FOLDER}/yawn_model_onnx_{EPOCH}.onnx"
@@ -103,7 +104,11 @@ print('First 10 closed images')
 closed_eye_img_paths = train_utils.listdir_fullpath(MOUTH_CLOSED_FOLDER)
 print(os.path.basename(f) for f in closed_eye_img_paths[:10])
 
-train_utils.plot_freq_imgs(opened_eye_img_paths, closed_eye_img_paths)
+train_utils.plot_freq_imgs(
+    PLOT_IMAGE_FREQ_PATH,
+    opened_eye_img_paths,
+    closed_eye_img_paths
+)
 
 train_utils.show_img_preview(
     PLOT_IMAGE_PREVIEW,
@@ -205,7 +210,6 @@ train_utils.summarize_diagnostics(history_dict, OUTPUT_FOLDER)
 final_loss, final_accuracy, f1_score, precision, recall = model.evaluate(valid_generator, verbose=1)
 print("Final loss: {:.2f}".format(final_loss))
 print("Final accuracy: {:.2f}%".format(final_accuracy * 100))
-
 print("F1: {:.2f}".format(f1_score))
 print("Precision: {:.2f}".format(precision))
 print("Recall: {:.2f}".format(recall))
@@ -236,11 +240,7 @@ plt.tight_layout()
 plt.savefig(f"{OUTPUT_FOLDER}/plot_predictions.png")
 plt.show()
 
-# Predicting the classes of images
-# predictions = model.predict_generator(valid_generator)
-# print('predictions shape:', predictions.shape)
-
-
+# Predicting the classes of some images
 closed_mouth_folder = f"{MOUTH_PREPARE_VAL_FOLDER}/closed/"
 closed_mouth_img = os.listdir(closed_mouth_folder)[0]
 closed_mouth_img = os.path.join(closed_mouth_folder, closed_mouth_img)
@@ -287,24 +287,12 @@ train_utils.convert_tf2onnx(SAVED_MODEL, ONNX_MODEL_PATH)
 train_utils.export_tf_js(model, TFJS_MODEL)
 
 train_utils.export_tflite_quant(TFLITE_QUANT_PATH, SAVED_MODEL)
-
 if IS_EVALUATE_TFLITE:
-    # test tflite quality
-    print('Evaluate quant TFLite model')
-    interpreter_quant = tf.lite.Interpreter(model_path=TFLITE_QUANT_PATH)
-    interpreter_quant.allocate_tensors()
-    test_accuracy_tflite_q = train_utils.evaluate_model(interpreter_quant, test_images, test_labels)
-    print('Quantized TFLite test_accuracy:', test_accuracy_tflite_q)
+    train_utils.evaluate_tflite_quant(TFLITE_QUANT_PATH, test_images, test_labels)
 
 train_utils.export_tflite_floating(TFLITE_FLOAT_PATH, SAVED_MODEL)
-
 if IS_EVALUATE_TFLITE:
-    # test tflite quality
-    print('Evaluate float TFLite model')
-    interpreter_float = tf.lite.Interpreter(model_path=TFLITE_FLOAT_PATH)
-    interpreter_float.allocate_tensors()
-    test_accuracy_tflite_f = train_utils.evaluate_model(interpreter_float, test_images, test_labels)
-    print('Floating TFLite test_accuracy:', test_accuracy_tflite_f)
+    train_utils.evaluate_tflite_float(TFLITE_FLOAT_PATH, test_images, test_labels)
 
 # Create a concrete function from the SavedModel
 train_utils.export_tflite_floating2(
