@@ -84,7 +84,8 @@ INCLUDE_OPTIMIZER_WEIGHTS = False
 IS_PRUNE_MODEL = False
 IS_EVALUATE_TFLITE = False
 
-PLOT_IMAGE_FREQ_PATH = f'{OUTPUT_FOLDER}/plot_img_frequency.png'
+PLOT_MODEL_ARCH_PATH = f'{OUTPUT_FOLDER}/plot_model_arch.png'
+PLOT_IMAGE_FREQ_PATH = f'{OUTPUT_FOLDER}/plot_dataset_frequency.png'
 PLOT_IMAGE_PREVIEW = f'{OUTPUT_FOLDER}/plot_img_overview.png'
 TRAIN_HISTORY_CSV = f'{OUTPUT_FOLDER}/train_history.csv'
 ONNX_MODEL_PATH = f"{OUTPUT_FOLDER}/yawn_model_onnx_{EPOCH}.onnx"
@@ -266,6 +267,17 @@ tf.keras.models.save_model(
     save_format=None,
     signatures=None,
     options=None
+)
+
+# Plot model architecture
+tf.keras.utils.plot_model(
+    model,
+    to_file=PLOT_MODEL_ARCH_PATH,
+    show_shapes=True,
+    show_layer_names=True,
+    rankdir="TB",
+    expand_nested=False,
+    dpi=96,
 )
 
 train_utils.export_pb(SAVED_MODEL, FROZEN_MODEL_PATH)

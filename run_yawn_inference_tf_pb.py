@@ -5,7 +5,6 @@ from pathlib import Path
 import cv2
 import numpy as np
 import tensorflow as tf
-from tensorflow import keras
 
 from yawn_train import download_utils, inference_utils
 from yawn_train.model_config import IMAGE_PAIR_SIZE, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS
@@ -32,9 +31,6 @@ VIDEO_FILE = 0  # '/Users/igla/Downloads/Memorable Monologue- Talking in the Thi
 TEST_DIR = './out_test_mouth/'
 TEMP_FOLDER = "./temp"
 
-# Provide trained KERAS model
-model = keras.models.load_model('./out_epoch_30/yawn_model_30.h5')
-
 
 def load_pb_model():
     print("load graph")
@@ -60,7 +56,7 @@ def load_pb_model():
 
 
 GRAPH_PB_PATH = './out_epoch_60/yawn_model_60.pb'
-pb_session = load_pb_model()
+pb_session_tuple = load_pb_model()
 
 caffe_weights, caffe_config = download_utils.download_caffe(TEMP_FOLDER)
 # Reads the network model stored in Caffe framework's format.
@@ -76,7 +72,7 @@ def predict_image_data(img_array):
     img_array = np.reshape(img_array, (-1, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS))
     # img_array = tf.expand_dims(img_array, axis=0)  # Create batch axis
 
-    sess, input, output = pb_session
+    sess, input, output = pb_session_tuple
     y_out = sess.run(output, feed_dict={input: img_array})
 
     # model_predictions = model.predict(img_array)
