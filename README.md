@@ -98,8 +98,8 @@ python train_yawn.py
 		<tr>
          <td>CPU</td>
 			<td>Keras H5 (Floating)</td>
-         <td>50 ms</td>
-         <td>20</td>
+         <td>30 ms</td>
+         <td>30</td>
 		</tr>
       <tr>
          <td>CPU</td>
