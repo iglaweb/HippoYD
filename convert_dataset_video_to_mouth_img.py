@@ -2,8 +2,9 @@ import os
 import sys
 from pathlib import Path
 
-# adapt paths for jupyter
 from yawn_train.ssd_face_detector import SSDFaceDetector
+
+# adapt paths for jupyter
 
 module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
@@ -18,7 +19,7 @@ from imutils import face_utils
 from yawn_train import download_utils, detect_utils
 from yawn_train.model_config import MOUTH_AR_THRESH, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT
 
-MOUTH_FOLDER = "./mouth_state_new"
+MOUTH_FOLDER = "./mouth_state_newwwww"
 MOUTH_OPENED_FOLDER = f"{MOUTH_FOLDER}/opened"
 MOUTH_CLOSED_FOLDER = f"{MOUTH_FOLDER}/closed"
 
@@ -55,13 +56,8 @@ def detect_face_dlib(image) -> list:
     rect_list = []
     # loop over the face detections
     for (i, rect) in enumerate(rects):
-        (x, y, w, h) = face_utils.rect_to_bb(rect)
-        rect_list.append((x, y, x + w, y + h))
+        rect_list.append((rect.left(), rect.top(), rect.right(), rect.bottom()))
     return rect_list
-
-
-def detect_face_caffe(image) -> list:
-    return ssd_face_detector.detect_face(image)
 
 
 """
@@ -69,24 +65,21 @@ Take mouth ratio only from dlib rect. Use dnn frame for output
 """
 
 
-def recognize_image(video_path, frame, face_rect_dlib, face_rect_dnn=None):
-    (start_x, start_y, endX, endY) = face_rect_dlib
+def recognize_image(video_path: str, frame, face_rect_dlib, face_rect_dnn=None):
+    (start_x, start_y, end_x, end_y) = face_rect_dlib
     start_x = max(start_x, 0)
     start_y = max(start_y, 0)
-    face_roi_dlib = frame[start_y:endY, start_x:endX]
+    if start_x >= end_x or start_y >= end_y:
+        print('Invalid detection. Skip', face_rect_dlib)
+        return
 
-    # cv2.imshow('Gray', gray_img)
-    # cv2.waitKey(0)
-
+    face_roi_dlib = frame[start_y:end_y, start_x:end_x]
     if face_roi_dlib is None:
         print('Cropped face is None. Skip')
         return
 
-    # determine the facial landmarks for the face region, then
-    height_frame, width_frame = face_roi_dlib.shape[:2]
-
     # https://pyimagesearch.com/wp-content/uploads/2017/04/facial_landmarks_68markup.jpg
-    shape = predictor(face_roi_dlib, dlib.rectangle(0, 0, width_frame, height_frame))
+    shape = predictor(frame, dlib.rectangle(start_x, start_y, end_x, end_y))
     shape = face_utils.shape_to_np(shape)
 
     # loop over the (x, y)-coordinates for the facial landmarks
@@ -97,7 +90,6 @@ def recognize_image(video_path, frame, face_rect_dlib, face_rect_dnn=None):
     # extract the mouth coordinates, then use the
     # coordinates to compute the mouth aspect ratio
     mouth = shape[mStart:mEnd]
-
     mouth_mar = detect_utils.mouth_aspect_ratio(mouth)
     # compute the convex hull for the mouth, then
     # visualize the mouth
@@ -114,13 +106,15 @@ def recognize_image(video_path, frame, face_rect_dlib, face_rect_dnn=None):
         # some videos may contain opened mouth, skip these situations
         return
 
+    target_face_roi = None
     if face_rect_dnn is not None:
-        (start_x, start_y, endX, endY) = face_rect_dnn
+        (start_x, start_y, end_x, end_y) = face_rect_dnn
         start_x = max(start_x, 0)
         start_y = max(start_y, 0)
-        face_roi_dnn = frame[start_y:endY, start_x:endX]
-        target_face_roi = face_roi_dnn
-    else:
+        if start_x < end_x and start_y < end_y:
+            face_roi_dnn = frame[start_y:end_y, start_x:end_x]
+            target_face_roi = face_roi_dnn
+    if target_face_roi is None:
         target_face_roi = face_roi_dlib
 
     gray_img = cv2.cvtColor(target_face_roi, cv2.COLOR_BGR2GRAY)
@@ -129,11 +123,11 @@ def recognize_image(video_path, frame, face_rect_dlib, face_rect_dnn=None):
     if mouth_mar >= MOUTH_AR_THRESH:
         global mouth_open_counter
         mouth_open_counter = mouth_open_counter + 1
-        cv2.imwrite(f'{MOUTH_OPENED_FOLDER}/image_{mouth_open_counter}_{mouth_mar}.jpg', gray_img)
+        cv2.imwrite(f'{MOUTH_OPENED_FOLDER}/image_{mouth_open_counter}_{mouth_mar}_{video_name}.jpg', gray_img)
     else:
         global mouth_close_counter
         mouth_close_counter = mouth_close_counter + 1
-        cv2.imwrite(f'{MOUTH_CLOSED_FOLDER}/image_{mouth_close_counter}_{mouth_mar}.jpg', gray_img)
+        cv2.imwrite(f'{MOUTH_CLOSED_FOLDER}/image_{mouth_close_counter}_{mouth_mar}_{video_name}.jpg', gray_img)
 
 
 def process_video(video_path):
@@ -148,7 +142,7 @@ def process_video(video_path):
     while True:
         _, frame = cap.read()
         if frame is None:
-            print('No images left. Next video')
+            print('No images left in', video_path)
             break
 
         if np.shape(frame) == ():
@@ -173,9 +167,9 @@ def process_video(video_path):
 
         if is_prev_img_dlib is True:
             is_prev_img_dlib = False
-            face_list_dnn = detect_face_caffe(frame)
+            face_list_dnn = ssd_face_detector.detect_face(frame)
             if len(face_list_dnn) == 0:
-                print('Face not found')
+                print('Face not found with dnn')
                 continue
 
             recognize_image(video_path, frame, face_list_dlib[0], face_list_dnn[0])
