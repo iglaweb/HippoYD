@@ -95,10 +95,10 @@ def summarize_diagnostics(history_dict, output_folder):
     val_acc = history_dict['val_accuracy']
     loss = history_dict['loss']
     val_loss = history_dict['val_loss']
-    learning_rate = history_dict['lr']
     epochs = range(1, len(acc) + 1)
 
-    if learning_rate is not None:
+    if 'lr' in history_dict:
+        learning_rate = history_dict['lr']
         plt.plot(epochs, learning_rate, 'b', label='Learning rate')
         plt.minorticks_on()
         plt.grid(which='major')
@@ -458,8 +458,8 @@ def plot_freq_imgs(opened_eye_img_paths: list, closed_eye_img_paths: list):
         conf = get_conf_from_path(image_path)
         closed_freq.append(conf)
 
-    plt.hist(closed_freq, bins=20, label='Closed', color='blue', edgecolor='black')
-    plt.hist(opened_freq, bins=20, label='Opened', color='red', edgecolor='black')
+    plt.hist(closed_freq, bins=20, label=f'Closed ({len(closed_eye_img_paths)})', color='blue', edgecolor='black')
+    plt.hist(opened_freq, bins=20, label=f'Opened ({len(opened_eye_img_paths)})', color='red', edgecolor='black')
     plt.gca().set(title='Frequency Histogram', ylabel='Frequency')
     plt.xlim(0.0, 1.0)
     plt.legend()
