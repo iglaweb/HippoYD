@@ -205,7 +205,15 @@ history = model.fit(train_generator,
 history_dict = history.history
 history_dict.keys()
 
-train_utils.summarize_diagnostics(history_dict, OUTPUT_FOLDER)
+plot_accuracy_path = f"{OUTPUT_FOLDER}/plot_epochs_accuracy.png"
+plot_loss_path = f"{OUTPUT_FOLDER}/plot_epochs_loss.png"
+plot_lr_path = f"{OUTPUT_FOLDER}/plot_lr.png"
+train_utils.summarize_diagnostics(
+    history_dict,
+    plot_accuracy_path,
+    plot_loss_path,
+    plot_lr_path
+)
 
 # evaluate the accuracy of our model:
 final_loss, final_accuracy, f1_score, precision, recall = model.evaluate(valid_generator, verbose=1)

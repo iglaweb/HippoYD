@@ -90,7 +90,8 @@ def plot_value_array(predictions_array, is_correct_prediction: bool):
     thisplot[predicted_label].set_color(color)
 
 
-def summarize_diagnostics(history_dict, output_folder):
+def summarize_diagnostics(
+        history_dict, plot_accuracy_path, plot_loss_path, plot_lr_path):
     acc = history_dict['accuracy']
     val_acc = history_dict['val_accuracy']
     loss = history_dict['loss']
@@ -107,7 +108,7 @@ def summarize_diagnostics(history_dict, output_folder):
         plt.xlabel('Epochs')
         plt.ylabel('LR')
         plt.legend()
-        plt.savefig(f"{output_folder}/plot_lr.png")
+        plt.savefig(plot_lr_path)
         plt.show()
         plt.clf()  # clear figure
 
@@ -126,7 +127,7 @@ def summarize_diagnostics(history_dict, output_folder):
     plt.ylabel('Loss')
     plt.legend()
 
-    plt.savefig(f"{output_folder}/plot_epochs_loss.png")
+    plt.savefig(plot_loss_path)
     plt.show()
 
     # Plot Epochs / Training and validation accuracy
@@ -143,7 +144,7 @@ def summarize_diagnostics(history_dict, output_folder):
     plt.xlabel('Epochs')
     plt.ylabel('Accuracy')
     plt.legend()
-    plt.savefig(f"{output_folder}/plot_epochs_accuracy.png")
+    plt.savefig(plot_accuracy_path)
     plt.show()
 
 
@@ -453,10 +454,8 @@ def show_img_preview(out_path_img: str, img_class_paths1, img_class_paths2, thre
         plt.xticks([])
         plt.yticks([])
 
+        conf = get_conf_from_path(img_path)
         img_filename = os.path.basename(img_path)
-        filename_only = os.path.splitext(img_filename)[0]
-        img_threshold = filename_only.split("_")
-        conf = float(img_threshold[2])
         is_opened = "opened" if conf >= threshold else "closed"
 
         img = mpimg.imread(img_path)
@@ -491,7 +490,13 @@ def get_conf_from_path(img_path: str) -> float:
     img_filename = os.path.basename(img_path)
     filename_only = os.path.splitext(img_filename)[0]
     img_threshold = filename_only.split("_")
-    return float(img_threshold[2])
+    if len(img_threshold) > 2:
+        return float(img_threshold[2])
+
+    import pathlib
+    path = pathlib.PurePath(img_path)
+    bottom_folder = path.parent.name
+    return 1.0 if bottom_folder == 'opened' else 0.0
 
 
 def plot_roc(out_path_img: str, y_true, y_score):
