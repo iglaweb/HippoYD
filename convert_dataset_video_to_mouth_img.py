@@ -1,3 +1,4 @@
+import csv
 import os
 import sys
 from pathlib import Path
@@ -19,7 +20,7 @@ from imutils import face_utils
 from yawn_train import download_utils, detect_utils
 from yawn_train.model_config import MOUTH_AR_THRESH, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT
 
-MOUTH_FOLDER = "./mouth_state_newwwww"
+MOUTH_FOLDER = "./mouth_state_new3"
 MOUTH_OPENED_FOLDER = f"{MOUTH_FOLDER}/opened"
 MOUTH_CLOSED_FOLDER = f"{MOUTH_FOLDER}/closed"
 
@@ -28,8 +29,17 @@ TEMP_FOLDER = "./temp"
 # https://ieee-dataport.org/open-access/yawdd-yawning-detection-dataset#files
 YAWDD_DATASET_FOLDER = "./YawDD dataset"
 
-mouth_open_counter = 0
-mouth_close_counter = 0
+# dict to export csv for matching video and id
+video_stat_dict = {}
+
+read_mouth_open_counter = 0
+read_mouth_close_counter = 0
+
+saved_mouth_open_counter = 0
+saved_mouth_close_counter = 0
+
+PROCESS_EVERY_IMG_OPENED = 1
+PROCESS_EVERY_IMG_CLOSED = 4
 
 (mStart, mEnd) = face_utils.FACIAL_LANDMARKS_IDXS["mouth"]
 
@@ -65,7 +75,7 @@ Take mouth ratio only from dlib rect. Use dnn frame for output
 """
 
 
-def recognize_image(video_path: str, frame, face_rect_dlib, face_rect_dnn=None):
+def recognize_image(video_id: int, video_path: str, frame, face_rect_dlib, face_rect_dnn=None):
     (start_x, start_y, end_x, end_y) = face_rect_dlib
     start_x = max(start_x, 0)
     start_y = max(start_y, 0)
@@ -120,18 +130,31 @@ def recognize_image(video_path: str, frame, face_rect_dlib, face_rect_dnn=None):
     gray_img = cv2.cvtColor(target_face_roi, cv2.COLOR_BGR2GRAY)
     gray_img = detect_utils.resize_img(gray_img, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT)
 
-    if mouth_mar >= MOUTH_AR_THRESH:
-        global mouth_open_counter
-        mouth_open_counter = mouth_open_counter + 1
-        cv2.imwrite(f'{MOUTH_OPENED_FOLDER}/image_{mouth_open_counter}_{mouth_mar}_{video_name}.jpg', gray_img)
+    if is_mouth_opened:
+        global read_mouth_open_counter
+        read_mouth_open_counter = read_mouth_open_counter + 1
+        # reduce img count
+        if read_mouth_open_counter % PROCESS_EVERY_IMG_OPENED != 0:
+            return
+
+        global saved_mouth_open_counter
+        saved_mouth_open_counter = saved_mouth_open_counter + 1
+        file_name = os.path.join(MOUTH_OPENED_FOLDER, f'img_{read_mouth_open_counter}_{mouth_mar}_{video_id}.jpg')
+        cv2.imwrite(file_name, gray_img)
     else:
-        global mouth_close_counter
-        mouth_close_counter = mouth_close_counter + 1
-        cv2.imwrite(f'{MOUTH_CLOSED_FOLDER}/image_{mouth_close_counter}_{mouth_mar}_{video_name}.jpg', gray_img)
+        global read_mouth_close_counter
+        read_mouth_close_counter = read_mouth_close_counter + 1
+        # reduce img count
+        if read_mouth_close_counter % PROCESS_EVERY_IMG_CLOSED != 0:
+            return
+
+        global saved_mouth_close_counter
+        saved_mouth_close_counter = saved_mouth_close_counter + 1
+        file_name = os.path.join(MOUTH_CLOSED_FOLDER, f'img_{read_mouth_close_counter}_{mouth_mar}_{video_id}.jpg')
+        cv2.imwrite(file_name, gray_img)
 
 
-def process_video(video_path):
-    total_img_counter = 0
+def process_video(video_id, video_path):
     face_dlib_counter = 0
     face_caffe_counter = 0
     cap = cv2.VideoCapture(video_path)
@@ -149,11 +172,6 @@ def process_video(video_path):
             print('Empty image. Skip')
             continue
 
-        total_img_counter = total_img_counter + 1
-        # reduce img count
-        if total_img_counter % 2 != 0:
-            continue
-
         face_list_dlib = detect_face_dlib(frame)
         if len(face_list_dlib) == 0:
             # skip images not recognized by dlib (dlib lndmrks only good when dlib face found)
@@ -161,7 +179,7 @@ def process_video(video_path):
 
         if is_prev_img_dlib is False:
             is_prev_img_dlib = True
-            recognize_image(video_path, frame, face_list_dlib[0])
+            recognize_image(video_id, video_path, frame, face_list_dlib[0])
             face_dlib_counter = face_dlib_counter + 1
             continue
 
@@ -172,12 +190,12 @@ def process_video(video_path):
                 print('Face not found with dnn')
                 continue
 
-            recognize_image(video_path, frame, face_list_dlib[0], face_list_dnn[0])
+            recognize_image(video_id, video_path, frame, face_list_dlib[0], face_list_dnn[0])
             face_caffe_counter = face_caffe_counter + 1
 
     video_name = os.path.basename(video_path)
     print(
-        f"Total images: {total_img_counter}, collected dlib: {face_dlib_counter} images, collected Caffe: {face_caffe_counter} images in video {video_name}")
+        f"Total images: {face_dlib_counter + face_caffe_counter}, read dlib: {face_dlib_counter} images, read caffe: {face_caffe_counter} images in video {video_name}")
     cap.release()
 
     # The function is not implemented. Rebuild the library with Windows, GTK+ 2.x or Cocoa support. If you are on
@@ -190,19 +208,27 @@ def process_video(video_path):
 
 
 def process_videos():
-    files_count = 0
+    video_count = 0
     for root, dirs, files in os.walk(YAWDD_DATASET_FOLDER):
         for file in files:
             if file.endswith(".avi"):
-                files_count = files_count + 1
+                video_count = video_count + 1
                 file_name = os.path.join(root, file)
                 print(file_name)
-                process_video(file_name)
 
-    print(f'Videos processed: {files_count}')
-    print(f'Total images: {mouth_open_counter + mouth_close_counter}')
-    print(f'Opened mouth images: {mouth_open_counter}')
-    print(f'Closed mouth images: {mouth_close_counter}')
+                video_stat_dict[file_name] = video_count
+                process_video(video_count, file_name)
+
+    print('Write statistics')
+    video_stat_dict_path = os.path.join(MOUTH_FOLDER, 'video_stat.csv')
+    with open(video_stat_dict_path, 'w') as f:  # You will need 'wb' mode in Python 2.x
+        w = csv.writer(f)
+        w.writerows(video_stat_dict.items())
+
+    print(f'Videos processed: {video_count}')
+    print(f'Total images: {saved_mouth_open_counter + saved_mouth_close_counter}')
+    print(f'Saved opened mouth images: {saved_mouth_open_counter}')
+    print(f'Saved closed mouth images: {saved_mouth_close_counter}')
 
 
 if __name__ == '__main__':
