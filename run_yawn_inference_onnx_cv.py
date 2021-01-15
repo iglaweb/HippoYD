@@ -30,6 +30,7 @@ CONFIDENCE_THRESHOLD = 0.2
 VIDEO_FILE = 0  # '/Users/igla/Downloads/Memorable Monologue- Talking in the Third Person.mp4'
 TEST_DIR = './out_test_mouth/'
 TEMP_FOLDER = "./temp"
+BATCH_IMG_COUNT_PROCESS = 10  # number of images per process
 
 # Provide trained KERAS model
 cv_model = cv2.dnn.readNetFromONNX('./out_epoch_30/yawn_model_onnx_30.onnx')
@@ -37,6 +38,10 @@ cv_model = cv2.dnn.readNetFromONNX('./out_epoch_30/yawn_model_onnx_30.onnx')
 caffe_weights, caffe_config = download_utils.download_caffe(TEMP_FOLDER)
 # Reads the network model stored in Caffe framework's format.
 face_model = cv2.dnn.readNetFromCaffe(caffe_config, caffe_weights)
+
+mouth_open_counter = 0
+batch_img_list = []
+last_pred_val = 0.0
 
 
 def clear_test():
@@ -63,7 +68,20 @@ def prepare_input_blob(im):
     return blob, im
 
 
-mouth_open_counter = 0
+def prepare_input_blob_multiple(images: list):
+    img_list = []
+    for img in images:
+        if img.shape[0] != MAX_IMAGE_WIDTH or img.shape[1] != MAX_IMAGE_HEIGHT:
+            img = cv2.resize(img, IMAGE_PAIR_SIZE)
+        img_list.append(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
+
+    blob = cv2.dnn.blobFromImages(img_list,
+                                  scalefactor=1 / 255.0,
+                                  ddepth=cv2.CV_32F)
+    # print(blob.shape)
+    blob = blob.reshape(-1, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS)
+    # print(blob.shape)
+    return blob, img_list
 
 
 def image_reader(frame, face):
@@ -71,6 +89,7 @@ def image_reader(frame, face):
     frame_crop = frame[startY:endY, startX:endX]
 
     im_input_cv, gray_img = prepare_input_blob(frame_crop)
+
     # im_input_cv.shape
     # im_input_cv.dtype
     # im_input_cv.ravel()[5000:5010]
@@ -99,10 +118,75 @@ def image_reader(frame, face):
     cv2.waitKey(1)
 
 
+def image_reader_batch(frame, face):
+    global batch_img_list
+    global last_pred_val
+
+    batch_img_list.append(frame)
+    if len(batch_img_list) == BATCH_IMG_COUNT_PROCESS:
+        if face is not None:
+            last_pred_val = resolve_predictions(batch_img_list, face)
+        else:
+            last_pred_val = 0.0
+        batch_img_list = []  # clear
+    else:
+        print('Wait next frame, collected:', len(batch_img_list))
+
+    cv2.putText(frame, f"Mouth opened {mouth_open_counter}", (0, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.8,
+                (0, 0, 255),
+                2)
+    is_mouth_opened = last_pred_val >= CONFIDENCE_THRESHOLD
+    opened_str = "Opened" if is_mouth_opened else "Closed"
+    cv2.putText(frame, opened_str, (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
+    cv2.putText(frame, f"Prediction: {last_pred_val}", (0, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.8,
+                (0, 0, 255),
+                2)
+    cv2.imshow("Image", frame)
+    cv2.waitKey(1)
+
+
+def resolve_predictions(frames: list, face) -> float:
+    time_start = inference_utils.get_timestamp_ms()
+
+    frames_list = []
+    for frame in frames:
+        (startX, startY, endX, endY) = face
+        frame_crop = frame[startY:endY, startX:endX]
+        frames_list.append(frame_crop)
+
+    im_input_cvs, gray_imgs = prepare_input_blob_multiple(frames_list)
+    cv_model.setInput(im_input_cvs)
+    predictions = cv_model.forward()
+
+    pred = np.squeeze(predictions)
+    print(pred)
+
+    global mouth_open_counter
+    ret_predictions = []
+    total = 0.0
+    for x in pred:
+        x = round(x, 2)
+        ret_predictions.append(x)
+        total = total + x
+
+        is_mouth_opened = True if x >= CONFIDENCE_THRESHOLD else False
+        if is_mouth_opened:
+            mouth_open_counter = mouth_open_counter + 1
+
+    avg_open = total / len(ret_predictions)
+    time_diff = inference_utils.get_timestamp_ms() - time_start
+    print(f'Predictions: {ret_predictions}; time: {time_diff} ms')
+    return round(avg_open, 2)
+
+
 if __name__ == '__main__':
     mouth_open_counter = 0
     clear_test()
 
     video_face_detector = VideoFaceDetector(VIDEO_FILE, face_model)
-    video_face_detector.start(image_reader)
+    if BATCH_IMG_COUNT_PROCESS == 1:
+        video_face_detector.start_single(image_reader)
+    else:
+        video_face_detector.start_batch(image_reader_batch)
     cv2.destroyAllWindows()
