@@ -12,7 +12,6 @@ import math
 import os
 import random
 
-import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -79,11 +78,12 @@ LEARNING_RATE = 0.001
 OUTPUT_FOLDER = f"./out_epoch_{EPOCH}"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-TRAIN_LITE_MODEL = True
+TRAIN_LITE_MODEL = False
 INCLUDE_OPTIMIZER_WEIGHTS = False
 IS_PRUNE_MODEL = False
 IS_EVALUATE_TFLITE = False
 
+PLOT_PREDICTIONS = f"{OUTPUT_FOLDER}/plot_predictions.png"
 PLOT_MODEL_ARCH_PATH = f'{OUTPUT_FOLDER}/plot_model_arch.png'
 PLOT_IMAGE_FREQ_PATH = f'{OUTPUT_FOLDER}/plot_dataset_frequency.png'
 PLOT_IMAGE_PREVIEW = f'{OUTPUT_FOLDER}/plot_img_overview.png'
@@ -246,25 +246,12 @@ for i in range(num_images):
     plt.subplot(num_rows, 2 * num_cols, 2 * i + 2)
     train_utils.plot_value_array(predictions[idx], is_correct_pred)
 plt.tight_layout()
-plt.savefig(f"{OUTPUT_FOLDER}/plot_predictions.png")
+plt.savefig(PLOT_PREDICTIONS)
 plt.show()
 
 # Predicting the classes of some images
-closed_mouth_folder = f"{MOUTH_PREPARE_VAL_FOLDER}/closed/"
-closed_mouth_img = os.listdir(closed_mouth_folder)[0]
-closed_mouth_img = os.path.join(closed_mouth_folder, closed_mouth_img)
-img = mpimg.imread(closed_mouth_img)
-plt.imshow(img, cmap="gray")
-plt.show()
-train_utils.predict_image(model, closed_mouth_img)
-
-opened_mouth_folder = f"{MOUTH_PREPARE_VAL_FOLDER}/opened/"
-opened_mouth_img = os.listdir(opened_mouth_folder)[0]
-opened_mouth_img = os.path.join(opened_mouth_folder, opened_mouth_img)
-img = mpimg.imread(opened_mouth_img)
-plt.imshow(img, cmap="gray")
-plt.show()
-train_utils.predict_image(model, opened_mouth_img)
+for class_name in class_names:  # opened, closed
+    train_utils.predict_random_test_img(model, MOUTH_PREPARE_TEST_FOLDER, class_name)
 
 # saved model
 tf.keras.models.save_model(

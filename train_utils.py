@@ -1,8 +1,10 @@
 import os
+import random
 import tempfile
 
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
+import numpy
 import numpy as np
 import tensorflow as tf
 from sklearn.metrics import roc_curve, auc
@@ -33,15 +35,15 @@ def predict_image(model, input_img):
     )
     img_array = keras.preprocessing.image.img_to_array(loaded_img)
     # scale pixel values to [0, 1]
-    img_array = img_array.astype('float32')
+    img_array = img_array.astype(np.float32)
     img_array /= 255.0
     img_array = tf.expand_dims(img_array, 0)  # Create batch axis
 
     model_predictions = model.predict(img_array)
     score = model_predictions[0]
     print(
-        "This image (%s) is %.2f percent closed mouth and %.2f percent opened mouth."
-        % (input_img, 100 * score, 100 * (1 - score))
+        "This image (%s) is %.2f %% opened."
+        % (input_img, 100 * score)
     )
 
 
@@ -248,6 +250,7 @@ def evaluate_model(interpreter, test_images, test_labels):
 
     # Run predictions on ever y image in the "test" dataset.
     prediction_confs = []
+    class_indices = {'closed': 0, 'opened': 1}
     for i, test_image in enumerate(test_images):
         if i % 1000 == 0:
             print('Evaluated on {n} results so far.'.format(n=i))
@@ -279,7 +282,6 @@ def evaluate_model(interpreter, test_images, test_labels):
 
         is_mouth_opened = True if pred_confidence >= 0.2 else False
         # classes taken from input data
-        class_indices = {'closed': 0, 'opened': 1}
         predicted_label_id = class_indices['opened' if is_mouth_opened else 'closed']
         prediction_confs.append(predicted_label_id)
 
@@ -434,6 +436,16 @@ def listdir_fullpath(d):
     return [os.path.join(d, f) for f in os.listdir(d)]
 
 
+def predict_random_test_img(model, path: str, class_name: str):
+    opened_mouth_img = os.path.join(path, class_name)
+    open_img_paths = listdir_fullpath(opened_mouth_img)
+    random_img = random.choice(open_img_paths)
+    img = mpimg.imread(random_img)
+    plt.imshow(img, cmap="gray")
+    plt.show()
+    predict_image(model, random_img)
+
+
 def show_img_preview(out_path_img: str, img_class_paths1, img_class_paths2, threshold):
     # Parameters for our graph; we'll output images in a 4x4 configuration
     nrows = 4
@@ -475,24 +487,28 @@ def plot_freq_imgs(out_path_img: str, opened_eye_img_paths: list, closed_eye_img
         conf = get_conf_from_path(image_path)
         closed_freq.append(conf)
 
-    plt.hist(closed_freq, bins=20, label=f'Closed ({len(closed_eye_img_paths)})', color='blue', edgecolor='black')
-    plt.hist(opened_freq, bins=20, label=f'Opened ({len(opened_eye_img_paths)})', color='red', edgecolor='black')
+    bins = numpy.linspace(0.0, 1.0, 50)
+    plt.hist(closed_freq, bins=bins, label=f'Closed ({len(closed_eye_img_paths)})', color='blue', edgecolor='black')
+    plt.hist(opened_freq, bins=bins, label=f'Opened ({len(opened_eye_img_paths)})', color='red', edgecolor='black')
+    plt.legend(loc='upper right')
     plt.gca().set(title='Frequency Histogram', ylabel='Frequency')
     plt.xlim(0.0, 1.0)
     plt.legend()
-    plt.xlabel('Open mouth probability')
+    plt.xlabel('Open probability')
     plt.ylabel('Frequency')
     plt.savefig(out_path_img)
     plt.show()
 
 
 def get_conf_from_path(img_path: str) -> float:
-    img_filename = os.path.basename(img_path)
-    filename_only = os.path.splitext(img_filename)[0]
-    img_threshold = filename_only.split("_")
-    if len(img_threshold) > 2:
-        return float(img_threshold[2])
+    if 'mouth' in img_path:  # if mouth classification
+        img_filename = os.path.basename(img_path)
+        filename_only = os.path.splitext(img_filename)[0]
+        img_threshold = filename_only.split("_")
+        if len(img_threshold) > 2:
+            return float(img_threshold[2])
 
+    # default branch - eyes
     import pathlib
     path = pathlib.PurePath(img_path)
     bottom_folder = path.parent.name
