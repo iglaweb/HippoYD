@@ -88,15 +88,15 @@ PLOT_MODEL_ARCH_PATH = os.path.join(OUTPUT_FOLDER, 'plot_model_arch.png')
 PLOT_IMAGE_FREQ_PATH = os.path.join(OUTPUT_FOLDER, 'plot_dataset_frequency.png')
 PLOT_IMAGE_PREVIEW = os.path.join(OUTPUT_FOLDER, 'plot_img_overview.png')
 TRAIN_HISTORY_CSV = os.path.join(OUTPUT_FOLDER, 'train_history.csv')
-ONNX_MODEL_PATH = os.path.join(OUTPUT_FOLDER, "yawn_model_onnx_{EPOCH}.onnx")
-KERAS_MODEL_PATH = os.path.join(OUTPUT_FOLDER, "yawn_model_{EPOCH}.h5")
-FROZEN_MODEL_PATH = os.path.join(OUTPUT_FOLDER, "yawn_model_{EPOCH}.pb")
-KERAS_PRUNE_MODEL_PATH = os.path.join(OUTPUT_FOLDER, "yawn_model_prune_{EPOCH}.h5")
-TFLITE_QUANT_PATH = os.path.join(OUTPUT_FOLDER, "yawn_model_quant_{EPOCH}.tflite")
-TFLITE_FLOAT_PATH = os.path.join(OUTPUT_FOLDER, "yawn_model_float_{EPOCH}.tflite")
-TFLITE_FLOAT_PATH2 = os.path.join(OUTPUT_FOLDER, "yawn_model_float2_{EPOCH}.tflite")
-SAVED_MODEL = os.path.join(OUTPUT_FOLDER, "saved_mouth_model_{EPOCH}")
-TFJS_MODEL = os.path.join(OUTPUT_FOLDER, "tfjs_model_{EPOCH}")
+ONNX_MODEL_PATH = os.path.join(OUTPUT_FOLDER, f"yawn_model_onnx_{EPOCH}.onnx")
+KERAS_MODEL_PATH = os.path.join(OUTPUT_FOLDER, f"yawn_model_{EPOCH}.h5")
+FROZEN_MODEL_PATH = os.path.join(OUTPUT_FOLDER, f"yawn_model_{EPOCH}.pb")
+KERAS_PRUNE_MODEL_PATH = os.path.join(OUTPUT_FOLDER, f"yawn_model_prune_{EPOCH}.h5")
+TFLITE_QUANT_PATH = os.path.join(OUTPUT_FOLDER, f"yawn_model_quant_{EPOCH}.tflite")
+TFLITE_FLOAT_PATH = os.path.join(OUTPUT_FOLDER, f"yawn_model_float_{EPOCH}.tflite")
+TFLITE_FLOAT_PATH2 = os.path.join(OUTPUT_FOLDER, f"yawn_model_float2_{EPOCH}.tflite")
+SAVED_MODEL = os.path.join(OUTPUT_FOLDER, f"saved_mouth_model_{EPOCH}")
+TFJS_MODEL = os.path.join(OUTPUT_FOLDER, f"tfjs_model_{EPOCH}")
 
 print('First 10 opened images')
 opened_eye_img_paths = train_utils.listdir_fullpath(MOUTH_OPENED_FOLDER)
@@ -189,6 +189,8 @@ model.summary()
 csv_logger = CSVLogger(TRAIN_HISTORY_CSV, append=True, separator=';')
 # updatelr = LearningRateScheduler(train_utils.lr_scheduler, verbose=1)
 printlr = train_utils.printlearningrate()
+
+es_callback = keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
 history = model.fit(train_generator,
                     epochs=EPOCH,
                     batch_size=BATCH_SIZE,
@@ -196,6 +198,7 @@ history = model.fit(train_generator,
                     validation_data=valid_generator,
                     callbacks=[
                         csv_logger,
+                        es_callback,
                         # updatelr,
                         printlr
                     ])
