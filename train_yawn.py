@@ -61,42 +61,42 @@ else:
 print("REPLICAS: ", strategy.num_replicas_in_sync)
 
 MOUTH_PREPARE_FOLDER = './mouth_state'
-
-MOUTH_PREPARE_TRAIN_FOLDER = f'{MOUTH_PREPARE_FOLDER}/train'
-MOUTH_PREPARE_TEST_FOLDER = f'{MOUTH_PREPARE_FOLDER}/test'
-MOUTH_PREPARE_VAL_FOLDER = f'{MOUTH_PREPARE_FOLDER}/val'
+MOUTH_PREPARE_TRAIN_FOLDER = os.path.join(MOUTH_PREPARE_FOLDER, 'train')
+MOUTH_PREPARE_TEST_FOLDER = os.path.join(MOUTH_PREPARE_FOLDER, 'test')
+MOUTH_PREPARE_VAL_FOLDER = os.path.join(MOUTH_PREPARE_FOLDER, 'val')
 
 MOUTH_FOLDER = "./mouth_state"
-MOUTH_OPENED_FOLDER = f"{MOUTH_FOLDER}/opened"
-MOUTH_CLOSED_FOLDER = f"{MOUTH_FOLDER}/closed"
+MOUTH_OPENED_FOLDER = os.path.join(MOUTH_FOLDER, 'opened')
+MOUTH_CLOSED_FOLDER = os.path.join(MOUTH_FOLDER, 'closed')
 
 # Hyperparameters
 EPOCH = 1
 BATCH_SIZE = 8
 LEARNING_RATE = 0.001
 
-OUTPUT_FOLDER = f"./out_epoch_{EPOCH}"
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-
 TRAIN_LITE_MODEL = False
 INCLUDE_OPTIMIZER_WEIGHTS = False
 IS_PRUNE_MODEL = False
 IS_EVALUATE_TFLITE = False
 
-PLOT_PREDICTIONS = f"{OUTPUT_FOLDER}/plot_predictions.png"
-PLOT_MODEL_ARCH_PATH = f'{OUTPUT_FOLDER}/plot_model_arch.png'
-PLOT_IMAGE_FREQ_PATH = f'{OUTPUT_FOLDER}/plot_dataset_frequency.png'
-PLOT_IMAGE_PREVIEW = f'{OUTPUT_FOLDER}/plot_img_overview.png'
-TRAIN_HISTORY_CSV = f'{OUTPUT_FOLDER}/train_history.csv'
-ONNX_MODEL_PATH = f"{OUTPUT_FOLDER}/yawn_model_onnx_{EPOCH}.onnx"
-KERAS_MODEL_PATH = f"{OUTPUT_FOLDER}/yawn_model_{EPOCH}.h5"
-FROZEN_MODEL_PATH = f"{OUTPUT_FOLDER}/yawn_model_{EPOCH}.pb"
-KERAS_PRUNE_MODEL_PATH = f"{OUTPUT_FOLDER}/yawn_model_prune_{EPOCH}.h5"
-TFLITE_QUANT_PATH = f"{OUTPUT_FOLDER}/yawn_model_quant_{EPOCH}.tflite"
-TFLITE_FLOAT_PATH = f"{OUTPUT_FOLDER}/yawn_model_float_{EPOCH}.tflite"
-TFLITE_FLOAT_PATH2 = f"{OUTPUT_FOLDER}/yawn_model_float2_{EPOCH}.tflite"
-SAVED_MODEL = f"{OUTPUT_FOLDER}/saved_mouth_model_{EPOCH}"
-TFJS_MODEL = f"{OUTPUT_FOLDER}/tfjs_model_{EPOCH}"
+MODEL_PREFIX = 'lite' if TRAIN_LITE_MODEL else 'pro'
+OUTPUT_FOLDER = f"./out_epoch_{EPOCH}_{MODEL_PREFIX}"
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+PLOT_PREDICTIONS = os.path.join(OUTPUT_FOLDER, 'plot_predictions.png')
+PLOT_MODEL_ARCH_PATH = os.path.join(OUTPUT_FOLDER, 'plot_model_arch.png')
+PLOT_IMAGE_FREQ_PATH = os.path.join(OUTPUT_FOLDER, 'plot_dataset_frequency.png')
+PLOT_IMAGE_PREVIEW = os.path.join(OUTPUT_FOLDER, 'plot_img_overview.png')
+TRAIN_HISTORY_CSV = os.path.join(OUTPUT_FOLDER, 'train_history.csv')
+ONNX_MODEL_PATH = os.path.join(OUTPUT_FOLDER, "yawn_model_onnx_{EPOCH}.onnx")
+KERAS_MODEL_PATH = os.path.join(OUTPUT_FOLDER, "yawn_model_{EPOCH}.h5")
+FROZEN_MODEL_PATH = os.path.join(OUTPUT_FOLDER, "yawn_model_{EPOCH}.pb")
+KERAS_PRUNE_MODEL_PATH = os.path.join(OUTPUT_FOLDER, "yawn_model_prune_{EPOCH}.h5")
+TFLITE_QUANT_PATH = os.path.join(OUTPUT_FOLDER, "yawn_model_quant_{EPOCH}.tflite")
+TFLITE_FLOAT_PATH = os.path.join(OUTPUT_FOLDER, "yawn_model_float_{EPOCH}.tflite")
+TFLITE_FLOAT_PATH2 = os.path.join(OUTPUT_FOLDER, "yawn_model_float2_{EPOCH}.tflite")
+SAVED_MODEL = os.path.join(OUTPUT_FOLDER, "saved_mouth_model_{EPOCH}")
+TFJS_MODEL = os.path.join(OUTPUT_FOLDER, "tfjs_model_{EPOCH}")
 
 print('First 10 opened images')
 opened_eye_img_paths = train_utils.listdir_fullpath(MOUTH_OPENED_FOLDER)

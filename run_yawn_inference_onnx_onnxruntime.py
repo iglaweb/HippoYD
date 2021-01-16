@@ -36,6 +36,7 @@ caffe_weights, caffe_config = download_utils.download_caffe(TEMP_FOLDER)
 # Reads the network model stored in Caffe framework's format.
 face_model = cv2.dnn.readNetFromCaffe(caffe_config, caffe_weights)
 
+
 onnx_sess = rt.InferenceSession("./out_epoch_30/yawn_model_onnx_30.onnx")
 input_name = onnx_sess.get_inputs()[0].name
 label_name = onnx_sess.get_outputs()[0].name
@@ -105,5 +106,5 @@ if __name__ == '__main__':
     clear_test()
 
     video_face_detector = VideoFaceDetector(VIDEO_FILE, face_model)
-    video_face_detector.start(image_reader)
+    video_face_detector.start_single(image_reader)
     cv2.destroyAllWindows()
