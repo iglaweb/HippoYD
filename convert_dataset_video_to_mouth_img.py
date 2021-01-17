@@ -3,10 +3,7 @@ import os
 import sys
 from pathlib import Path
 
-from yawn_train.ssd_face_detector import SSDFaceDetector
-
 # adapt paths for jupyter
-
 module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
@@ -16,18 +13,21 @@ import dlib
 import numpy as np
 from imutils import face_utils
 
+from yawn_train.ssd_face_detector import SSDFaceDetector
+
 # define one constants, for mouth aspect ratio to indicate open mouth
-from yawn_train import download_utils, detect_utils
+from yawn_train import download_utils, detect_utils, inference_utils
 from yawn_train.model_config import MOUTH_AR_THRESH, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT
 
-MOUTH_FOLDER = "./mouth_state_new3"
-MOUTH_OPENED_FOLDER = f"{MOUTH_FOLDER}/opened"
-MOUTH_CLOSED_FOLDER = f"{MOUTH_FOLDER}/closed"
+MOUTH_FOLDER = "./mouth_state_new4"
+MOUTH_OPENED_FOLDER = os.path.join(MOUTH_FOLDER, 'opened')
+MOUTH_CLOSED_FOLDER = os.path.join(MOUTH_FOLDER, 'closed')
 
 TEMP_FOLDER = "./temp"
 
 # https://ieee-dataport.org/open-access/yawdd-yawning-detection-dataset#files
 YAWDD_DATASET_FOLDER = "./YawDD dataset"
+CSV_STATS = 'video_stat.csv'
 
 # dict to export csv for matching video and id
 video_stat_dict = {}
@@ -58,24 +58,12 @@ caffe_weights, caffe_config = download_utils.download_caffe(TEMP_FOLDER)
 face_model = cv2.dnn.readNetFromCaffe(caffe_config, caffe_weights)
 ssd_face_detector = SSDFaceDetector(face_model)
 
-
-def detect_face_dlib(image) -> list:
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    # detect faces in the grayscale image
-    rects = detector(gray, 1)
-    rect_list = []
-    # loop over the face detections
-    for (i, rect) in enumerate(rects):
-        rect_list.append((rect.left(), rect.top(), rect.right(), rect.bottom()))
-    return rect_list
-
-
 """
 Take mouth ratio only from dlib rect. Use dnn frame for output
 """
 
 
-def recognize_image(video_id: int, video_path: str, frame, face_rect_dlib, face_rect_dnn=None):
+def recognize_image(video_id: int, video_path: str, frame, frame_id: int, face_rect_dlib, face_rect_dnn=None):
     (start_x, start_y, end_x, end_y) = face_rect_dlib
     start_x = max(start_x, 0)
     start_y = max(start_y, 0)
@@ -127,7 +115,10 @@ def recognize_image(video_id: int, video_path: str, frame, face_rect_dlib, face_
     if target_face_roi is None:
         target_face_roi = face_roi_dlib
 
-    gray_img = cv2.cvtColor(target_face_roi, cv2.COLOR_BGR2GRAY)
+    if len(frame.shape) == 2:  # single channel
+        gray_img = target_face_roi
+    else:
+        gray_img = cv2.cvtColor(target_face_roi, cv2.COLOR_BGR2GRAY)
     gray_img = detect_utils.resize_img(gray_img, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT)
 
     if is_mouth_opened:
@@ -139,7 +130,8 @@ def recognize_image(video_id: int, video_path: str, frame, face_rect_dlib, face_
 
         global saved_mouth_open_counter
         saved_mouth_open_counter = saved_mouth_open_counter + 1
-        file_name = os.path.join(MOUTH_OPENED_FOLDER, f'img_{read_mouth_open_counter}_{mouth_mar}_{video_id}.jpg')
+        file_name = os.path.join(MOUTH_OPENED_FOLDER,
+                                 f'{read_mouth_open_counter}_{mouth_mar}_{video_id}_{frame_id}.jpg')
         cv2.imwrite(file_name, gray_img)
     else:
         global read_mouth_close_counter
@@ -150,20 +142,25 @@ def recognize_image(video_id: int, video_path: str, frame, face_rect_dlib, face_
 
         global saved_mouth_close_counter
         saved_mouth_close_counter = saved_mouth_close_counter + 1
-        file_name = os.path.join(MOUTH_CLOSED_FOLDER, f'img_{read_mouth_close_counter}_{mouth_mar}_{video_id}.jpg')
+        file_name = os.path.join(MOUTH_CLOSED_FOLDER,
+                                 f'{read_mouth_close_counter}_{mouth_mar}_{video_id}_{frame_id}.jpg')
         cv2.imwrite(file_name, gray_img)
 
 
 def process_video(video_id, video_path):
-    face_dlib_counter = 0
-    face_caffe_counter = 0
     cap = cv2.VideoCapture(video_path)
     if cap.isOpened() is False:
         print('Video is not opened', video_path)
         return
+    face_dlib_counter = 0
+    face_caffe_counter = 0
+    frame_id = 0
     is_prev_img_dlib = False  # by turns
     while True:
-        _, frame = cap.read()
+        ret, frame = cap.read()
+        frame_id = frame_id + 1
+        if ret is False:
+            break
         if frame is None:
             print('No images left in', video_path)
             break
@@ -172,14 +169,15 @@ def process_video(video_id, video_path):
             print('Empty image. Skip')
             continue
 
-        face_list_dlib = detect_face_dlib(frame)
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        face_list_dlib = inference_utils.detect_face_dlib(detector, gray_frame)
         if len(face_list_dlib) == 0:
             # skip images not recognized by dlib (dlib lndmrks only good when dlib face found)
             continue
 
         if is_prev_img_dlib is False:
             is_prev_img_dlib = True
-            recognize_image(video_id, video_path, frame, face_list_dlib[0])
+            recognize_image(video_id, video_path, gray_frame, frame_id, face_list_dlib[0])
             face_dlib_counter = face_dlib_counter + 1
             continue
 
@@ -190,7 +188,7 @@ def process_video(video_id, video_path):
                 print('Face not found with dnn')
                 continue
 
-            recognize_image(video_id, video_path, frame, face_list_dlib[0], face_list_dnn[0])
+            recognize_image(video_id, video_path, gray_frame, frame_id, face_list_dlib[0], face_list_dnn[0])
             face_caffe_counter = face_caffe_counter + 1
 
     video_name = os.path.basename(video_path)
@@ -220,7 +218,7 @@ def process_videos():
                 process_video(video_count, file_name)
 
     print('Write statistics')
-    video_stat_dict_path = os.path.join(MOUTH_FOLDER, 'video_stat.csv')
+    video_stat_dict_path = os.path.join(MOUTH_FOLDER, CSV_STATS)
     with open(video_stat_dict_path, 'w') as f:  # You will need 'wb' mode in Python 2.x
         w = csv.writer(f)
         w.writerows(video_stat_dict.items())
