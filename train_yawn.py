@@ -100,10 +100,15 @@ TFJS_MODEL = os.path.join(OUTPUT_FOLDER, f"tfjs_model_{EPOCH}")
 
 print('First 10 opened images')
 opened_eye_img_paths = train_utils.listdir_fullpath(MOUTH_OPENED_FOLDER)
-print(os.path.basename(f) for f in opened_eye_img_paths[:10])
+opened_eye_img_names = [os.path.basename(f) for f in opened_eye_img_paths[:10]]
+print(opened_eye_img_names)
+print()
+
 print('First 10 closed images')
 closed_eye_img_paths = train_utils.listdir_fullpath(MOUTH_CLOSED_FOLDER)
-print(os.path.basename(f) for f in closed_eye_img_paths[:10])
+closed_eye_img_names = [os.path.basename(f) for f in closed_eye_img_paths[:10]]
+print(closed_eye_img_names)
+print()
 
 train_utils.plot_freq_imgs(
     PLOT_IMAGE_FREQ_PATH,

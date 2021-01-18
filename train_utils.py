@@ -505,8 +505,8 @@ def get_conf_from_path(img_path: str) -> float:
         img_filename = os.path.basename(img_path)
         filename_only = os.path.splitext(img_filename)[0]
         img_threshold = filename_only.split("_")
-        if len(img_threshold) > 2:
-            return float(img_threshold[2])
+        if len(img_threshold) > 1:
+            return float(img_threshold[1])
 
     # default branch - eyes
     import pathlib
