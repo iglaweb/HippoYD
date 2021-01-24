@@ -7,6 +7,7 @@ import requests
 DLIB_LANDMARKS = 'https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks.dat.bz2'
 CAFFE_RES10_WEIGHTS = 'https://github.com/nhatthai/opencv-face-recognition/raw/master/src/face_detection_model/weights.caffemodel'
 CAFFE_RES10_CONFIG = 'https://github.com/nhatthai/opencv-face-recognition/raw/master/src/face_detection_model/deploy.prototxt'
+BLAZEFACE_URL = 'https://raw.githubusercontent.com/gouthamvgk/facemesh_coreml_tf/master/keras_models/blazeface_tf.h5'
 
 
 def download(url, file_name) -> str:
@@ -17,6 +18,17 @@ def download(url, file_name) -> str:
             if chunk:  # filter out keep-alive new chunks
                 f.write(chunk)
     return file_name
+
+
+def download_blazeface(folder) -> str:
+    print('Downloading blazeface file...')
+    Path(folder).mkdir(parents=True, exist_ok=True)
+    model_path = os.path.join(folder, "blazeface_tf.h5")
+    if os.path.isfile(model_path):  # already exists
+        file1 = model_path
+    else:
+        file1 = download(BLAZEFACE_URL, model_path)
+    return file1
 
 
 def download_caffe(folder) -> (str, str):
@@ -39,8 +51,12 @@ def download_caffe(folder) -> (str, str):
 
 def download_and_unpack_dlib_68_landmarks(folder) -> str:
     Path(folder).mkdir(parents=True, exist_ok=True)
-    predictor_path = os.path.join(folder, "shape_predictor_68_face_landmarks.dat.bz2")
+    predictor_path_out = os.path.join(folder, "shape_predictor_68_face_landmarks.dat")
+    if os.path.exists(predictor_path_out) is True:
+        print('Already exists', predictor_path_out)
+        return predictor_path_out
 
+    predictor_path = os.path.join(folder, "shape_predictor_68_face_landmarks.dat.bz2")
     if os.path.exists(predictor_path) is False:
         print('Downloading dlib landmarks file...')
         filepath = download(DLIB_LANDMARKS, predictor_path)
