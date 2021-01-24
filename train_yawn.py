@@ -33,6 +33,8 @@ os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 # from numba import cuda
 # cuda.select_device(0)
 
+# find out which devices your operations and tensors are assigned to
+# tf.debugging.set_log_device_placement(True)
 print(device_lib.list_local_devices())
 gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus:
@@ -122,16 +124,18 @@ train_utils.show_img_preview(
     MOUTH_AR_THRESH
 )
 
-# TRAINING_DATA_DIR = str(base_dir)
 # https://stackoverflow.com/questions/42443936/keras-split-train-test-set-when-using-imagedatagenerator
-
 # Data normalization is an important step which ensures that each input parameter (pixel, in this case) has a similar data distribution. This makes convergence faster while training the network.
 # All images will be rescaled by 1./255
 print('Create Train Image Data Generator')
-train_datagen = ImageDataGenerator(rescale=1. / 255,
-                                   shear_range=0.2,
-                                   zoom_range=0.2,
-                                   horizontal_flip=True)  # set validation split
+# construct the image generator for data augmentation
+train_datagen = ImageDataGenerator(
+    rotation_range=30,  # randomly rotate image
+    rescale=1. / 255,
+    shear_range=0.1,
+    horizontal_flip=True,
+    fill_mode="nearest", # zoom_range will corrupt img
+    preprocessing_function=train_utils.add_noise)
 train_generator = train_datagen.flow_from_directory(
     MOUTH_PREPARE_TRAIN_FOLDER,  # source directory for training images
     batch_size=BATCH_SIZE,
@@ -140,6 +144,10 @@ train_generator = train_datagen.flow_from_directory(
     class_mode='binary',
     target_size=IMAGE_PAIR_SIZE  # All images will be resized to IMAGE_SHAPE
 )
+
+print('Preview 20 images from train generator')
+train_utils.plot_dataget_first_20(train_generator)
+
 class_indices = train_generator.class_indices
 print(class_indices)  # {'closed': 0, 'opened': 1}
 class_names = list(class_indices.keys())
