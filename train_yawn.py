@@ -76,6 +76,7 @@ EPOCH = 1
 BATCH_SIZE = 8
 LEARNING_RATE = 0.001
 
+EARLY_STOP = False
 TRAIN_LITE_MODEL = False
 INCLUDE_OPTIMIZER_WEIGHTS = False
 IS_PRUNE_MODEL = False
@@ -134,7 +135,7 @@ train_datagen = ImageDataGenerator(
     rescale=1. / 255,
     shear_range=0.1,
     horizontal_flip=True,
-    fill_mode="nearest", # zoom_range will corrupt img
+    fill_mode="nearest",  # zoom_range will corrupt img
     preprocessing_function=train_utils.add_noise)
 train_generator = train_datagen.flow_from_directory(
     MOUTH_PREPARE_TRAIN_FOLDER,  # source directory for training images
@@ -204,17 +205,19 @@ csv_logger = CSVLogger(TRAIN_HISTORY_CSV, append=True, separator=';')
 printlr = train_utils.printlearningrate()
 
 es_callback = keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
+callbacks = [
+    csv_logger,
+    # updatelr,
+    printlr
+]
+if EARLY_STOP:
+    callbacks.append(es_callback)
 history = model.fit(train_generator,
                     epochs=EPOCH,
                     batch_size=BATCH_SIZE,
                     verbose=1,
                     validation_data=valid_generator,
-                    callbacks=[
-                        csv_logger,
-                        es_callback,
-                        # updatelr,
-                        printlr
-                    ])
+                    callbacks=callbacks)
 
 #  a graph of accuracy and loss over time
 # plot the training and validation loss for comparison, as well as the training and validation accuracy
