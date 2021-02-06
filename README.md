@@ -4,6 +4,9 @@
 
 This is a mouth openness detection model. Full training code, data preparation scripts, and pretrained models are in the repository.
 
+## Model Demo
+![Preview-demo](art/yawn_output_video.gif "Preview demo")<br />
+
 ## Requirements
 
 *   Refer to
@@ -12,7 +15,8 @@ This is a mouth openness detection model. Full training code, data preparation s
 
 ## Image Dataset
 
-The model was trained using video dataset [YawDD][1].
+The model was trained using video dataset [YawDD][1].<br />
+Paper: S. Abtahi, M. Omidyeganeh, S. Shirmohammadi, and B. Hariri, “YawDD: A Yawning Detection Dataset”, Proc. ACM Multimedia Systems, Singapore, March 19 -21 2014.
 
 ## How to train
 
@@ -29,7 +33,7 @@ python split_data_into_datasets.py
 python train_yawn.py
 ```
 
-## Available [pretrained models](out_epoch_60/) and demos
+## Available [pretrained models](out_epoch_70_pro/) and demos
 
 <table>
 	<tbody>
