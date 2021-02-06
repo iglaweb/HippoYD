@@ -249,6 +249,20 @@ def create_compiled_model_lite(input_shape, learning_rate) -> keras.Model:
     return model
 
 
+def create_compiled_model_mobilenet2(input_shape, learning_rate) -> keras.Model:
+    model = keras.Sequential()
+    model.add(keras.applications.MobileNetV2(include_top=False, weights="imagenet", input_shape=input_shape))
+    model.add(tf.keras.layers.GlobalAveragePooling2D())
+    model.add(layers.Dense(1, activation='sigmoid'))
+    model.layers[0].trainable = False
+
+    # compile model
+    opt = keras.optimizers.Adam(lr=learning_rate)
+    model.compile(optimizer=opt, loss='binary_crossentropy',
+                  metrics=['accuracy', f1_m, precision_m, recall_m])
+    return model
+
+
 def create_compiled_model(input_shape, learning_rate) -> keras.Model:
     # Note that when using the delayed-build pattern (no input shape specified),
     # the model gets built the first time you call `fit`, `eval`, or `predict`,
@@ -390,10 +404,11 @@ def convert_tf2onnx(saved_model, onnx_path):
     # onnx_model = keras2onnx.convert_keras(keras_model, ONNX_MODEL_PATH)
 
     # https://github.com/ysh329/deep-learning-model-convertor
-    os.system("python -m tf2onnx.convert \
-            --saved-model {saved_model} \
-            --output {onnx}".format(saved_model=saved_model, onnx=onnx_path))
-    print('Saved onnx model to:', onnx_path)
+    cmd = f"python -m tf2onnx.convert --saved-model {saved_model} --output {onnx_path}"
+    if os.system(cmd) == 0:
+        print('Saved onnx model', onnx_path)
+    else:
+        print('Failed to convert saved model to onnx', saved_model)
 
 
 def export_pb(saved_model, output_path):

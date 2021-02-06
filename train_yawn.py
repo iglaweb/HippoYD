@@ -1,7 +1,8 @@
 import os
 import sys
-
 # for Jupyter paths support, include other modules
+from enum import Enum
+
 from tensorflow.python.keras.callbacks import CSVLogger
 
 module_path = os.path.abspath(os.path.join('..'))
@@ -62,6 +63,13 @@ else:
 
 print("REPLICAS: ", strategy.num_replicas_in_sync)
 
+
+class ModelType(Enum):
+    FULL = 'full'
+    LITE = 'lite'
+    MOBILENET_V2 = 'mobilenetv2'
+
+
 MOUTH_PREPARE_FOLDER = './mouth_state'
 MOUTH_PREPARE_TRAIN_FOLDER = os.path.join(MOUTH_PREPARE_FOLDER, 'train')
 MOUTH_PREPARE_TEST_FOLDER = os.path.join(MOUTH_PREPARE_FOLDER, 'test')
@@ -73,16 +81,16 @@ MOUTH_CLOSED_FOLDER = os.path.join(MOUTH_FOLDER, 'closed')
 
 # Hyperparameters
 EPOCH = 1
-BATCH_SIZE = 8
+BATCH_SIZE = 32
 LEARNING_RATE = 0.001
 
 EARLY_STOP = False
-TRAIN_LITE_MODEL = False
+TRAIN_MODEL = ModelType.LITE  # FULL, LITE, MOBILENET_V2
 INCLUDE_OPTIMIZER_WEIGHTS = False
 IS_PRUNE_MODEL = False
 IS_EVALUATE_TFLITE = False
 
-MODEL_PREFIX = 'lite' if TRAIN_LITE_MODEL else 'pro'
+MODEL_PREFIX = TRAIN_MODEL.value
 OUTPUT_FOLDER = f"./out_epoch_{EPOCH}_{MODEL_PREFIX}"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
@@ -193,8 +201,14 @@ test_images[:] = [f'{MOUTH_PREPARE_VAL_FOLDER}/{x}' for x in test_images]
 print('Create model')
 # Create a basic model instance
 input_shape = (MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS)
-model = train_utils.create_compiled_model_lite(input_shape, LEARNING_RATE) \
-    if TRAIN_LITE_MODEL else train_utils.create_compiled_model(input_shape, LEARNING_RATE)
+
+if TRAIN_MODEL == ModelType.MOBILENET_V2:
+    model = train_utils.create_compiled_model_mobilenet2(input_shape, LEARNING_RATE)
+elif TRAIN_MODEL == ModelType.LITE:
+    model = train_utils.create_compiled_model_lite(input_shape, LEARNING_RATE)
+else:
+    model = train_utils.create_compiled_model(input_shape, LEARNING_RATE)
+
 keras.utils.plot_model(model, show_shapes=True)
 # Display the model's architecture
 model.summary()
@@ -282,6 +296,7 @@ tf.keras.models.save_model(
     signatures=None,
     options=None
 )
+print('Saved saved model to', SAVED_MODEL)
 
 # Plot model architecture
 tf.keras.utils.plot_model(
@@ -300,7 +315,7 @@ train_utils.export_pb(SAVED_MODEL, FROZEN_MODEL_PATH)
 # The '.h5' extension indicates that the model should be saved to HDF5.
 # Set include_optimizer=False to reduce output model size (e.g. 19.7mb -> 9.8mb)
 model.save(KERAS_MODEL_PATH, include_optimizer=INCLUDE_OPTIMIZER_WEIGHTS)
-print('Saved keras model to:', KERAS_MODEL_PATH)
+print('Saved keras model to', KERAS_MODEL_PATH)
 
 if IS_PRUNE_MODEL:
     # prune model
