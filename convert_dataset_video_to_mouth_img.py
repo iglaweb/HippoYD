@@ -110,7 +110,7 @@ Take mouth ratio only from dlib rect. Use dnn frame for output
 
 
 def should_process_video(video_name: str) -> bool:
-    is_video_sunglasses = video_name.rfind('-SunGlasses') != -1
+    is_video_sunglasses = video_name.rfind('SunGlasses') != -1
     if is_video_sunglasses:
         # inaccurate landmarks in sunglasses
         print('Video contains sunglasses. Skip', video_name)
