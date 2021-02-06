@@ -35,37 +35,31 @@ python train_yawn.py
 	<tbody>
 		<tr>
          <th>Model</th>
-         <th>Epochs</th>
          <th>Example of inference</th>
          <th>Demo</th>
 		</tr>
       <tr>
 			<td>SavedModel / Keras H5</td>
-         <td>60</td>
 			<td><a href='run_yawn_inference_tf_h5.py'>run_yawn_inference_tf_h5.py</a></td>
          <td></td>
 		</tr>
       <tr>
 			<td>TFLite</td>
-         <td>60</td>
 			<td><a href='run_yawn_inference_tflite.py'>run_yawn_inference_tflite.py</a></td>
          <td></td>
 		</tr>
       <tr>
 			<td>TensorFlowJS</td>
-         <td>60</td>
 			<td><a href='image_predict.js'>image_predict.js</a></td>
          <td><a href='https://igla.su/mouth-open-js/'>https://igla.su/mouth-open-js/</a></td>
 		</tr>
 		<tr>
 			<td>ONNX</td>
-         <td>60</td>
 			<td><a href='run_yawn_inference_onnx_cv.py'>run_yawn_inference_onnx_cv.py</a><br /><a href='run_yawn_inference_onnx_onnxruntime.py'>run_yawn_inference_onnx_onnxruntime.py</a></td>
-         <td></td>
+         <td><a href='https://igla.su/mouth-open-js/'>https://igla.su/mouth-open-js/</a></td>
 		</tr>
       <tr>
 			<td>Frozen pb</td>
-         <td>60</td>
 			<td><a href='run_yawn_inference_tf_pb.py'>run_yawn_inference_tf_pb.py</a></td>
          <td></td>
 		</tr>
