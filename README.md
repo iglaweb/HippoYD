@@ -15,8 +15,11 @@ This is a mouth openness detection model. Full training code, data preparation s
 
 ## Image Dataset
 
-The model was trained using video dataset [YawDD][1].<br />
+The model was trained using two sources:<br />
+
+1. Main source: Video dataset [YawDD][1]<br />
 Paper: S. Abtahi, M. Omidyeganeh, S. Shirmohammadi, and B. Hariri, “YawDD: A Yawning Detection Dataset”, Proc. ACM Multimedia Systems, Singapore, March 19 -21 2014.
+2. Augmentered by [Kaggle Drowsiness_dataset](https://www.kaggle.com/dheerajperumandla/drowsiness-dataset).
 
 ## How to train
 
@@ -70,7 +73,7 @@ python train_yawn.py
 	</tbody>
 </table>
 
-## Model Inference
+## Model Inference Results
 <table>
 	<tbody>
 		<tr>
@@ -78,44 +81,70 @@ python train_yawn.py
          <th>Config</th>
          <th>Model</th>
          <th>Time (avg)</th>
-         <th>FPS</th>
+         <th>TFLite ver.</th>
 		</tr>
       <tr>
 			<td rowspan="6">Macbook Pro, CPU<br/>2 GHz Quad-Core Intel Core i5</td>
          <td>CPU</td>
 			<td>TFLite (Floating)</td>
          <td>5 ms</td>
-         <td>250</td>
+         <td>2.3</td>
 		</tr>
       <tr>
          <td>CPU</td>
 			<td>TFLite (Quantized)</td>
          <td>8 ms</td>
-         <td>140</td>
+         <td>2.3</td>
 		</tr>
 		<tr>
          <td>CPU</td>
 			<td>Keras H5 (Floating)</td>
          <td>30 ms</td>
-         <td>30</td>
+         <td>2.3</td>
 		</tr>
       <tr>
          <td>CPU</td>
 			<td>ONNX</td>
          <td>2 ms</td>
-         <td>500</td>
+         <td>2.3</td>
 		</tr>
       <tr>
          <td>CPU</td>
 			<td>Frozen pb</td>
          <td>4 ms</td>
-         <td>250</td>
+         <td>2.3</td>
 		</tr>
       <tr>
          <td>Wasm (Safari 14.0, Firefox 84)</td>
 			<td>TensorFlowJS</td>
          <td>30 ms</td>
-         <td>30</td>
+         <td>2.3</td>
+		</tr>
+      <tr>
+			<td rowspan="2"><a href='https://www.gsmarena.com/xiaomi_mi_8-9065.php'>Xiaomi MI8</a></td>
+         <td>GPU/CPU 3 Threads</td>
+			<td>TFLite (Floating)</td>
+         <td>4 ms</td>
+         <td>2.4</td>
+		</tr>
+      <tr>
+         <td>CPU 3 Threads</td>
+			<td>TFLite (Quantized)</td>
+         <td>10 ms</td>
+         <td>2.4</td>
+		</tr>
+       <tr>
+			<td rowspan="2"><a href='https://www.gsmarena.com/xiaomi_redmi_9-10233.php'>Xiaomi Redmi 9</a></td>
+         <td>GPU/CPU 3 Threads</td>
+			<td>TFLite (Floating)</td>
+         <td>11 ms</td>
+         <td>2.4</td>
+		</tr>
+      <tr>
+         <td>CPU 3 Threads</td>
+			<td>TFLite (Quantized)</td>
+         <td>9 ms</td>
+         <td>2.4</td>
 		</tr>
 	</tbody>
 </table>
