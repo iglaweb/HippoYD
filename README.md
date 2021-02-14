@@ -9,8 +9,6 @@ Open image inference in [Colab](https://colab.research.google.com/drive/10cmolUT
 ## Demo
 ![Preview-demo](art/yawn_output_video.gif "Preview demo")<br />
 
-Open image inference in [Colab](https://colab.research.google.com/drive/10cmolUT0jItiWlaEJ8sr0ZcDigq2l4k4?usp=sharing).<br />
-
 ## Requirements
 
 *   Refer to
