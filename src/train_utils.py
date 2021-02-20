@@ -12,7 +12,7 @@ from tensorflow import keras
 from tensorflow.keras import backend as K
 from tensorflow.keras import layers
 
-from yawn_train.model_config import IMAGE_PAIR_SIZE
+from yawn_train.src.model_config import IMAGE_PAIR_SIZE
 
 
 # plot diagnostic learning curves
@@ -31,15 +31,13 @@ def gray_to_rgb(img):
     return np.repeat(img, 3, 2)
 
 
-def plot_dataget_first_20(train_generator):
+def plot_data_generator_first_20(train_generator):
     img_list = []
     for i in range(20):
         batch = next(train_generator)
         img = batch[0][0]
         test_image = gray_to_rgb(img)
         img_list.append(test_image)
-    w = 10
-    h = 10
     columns = 4
     rows = 5
     fig = plt.gcf()
@@ -47,18 +45,9 @@ def plot_dataget_first_20(train_generator):
     for i in range(1, columns * rows + 1):
         plt.subplot(rows, columns, i)
         img = img_list[i - 1]
-        plt.imshow((img * 255).astype(np.uint8))
+        image = (img * 255).astype(np.uint8)
+        plt.imshow(image)
     plt.show()
-
-
-def add_noise(img):
-    '''Add random noise to an image'''
-    VARIABILITY = 10
-    deviation = VARIABILITY * random.random()
-    noise = np.random.normal(0, deviation, img.shape)
-    img += noise
-    np.clip(img, 0., 255.)
-    return img
 
 
 def predict_image(model, input_img):
@@ -250,13 +239,30 @@ def create_compiled_model_lite(input_shape, learning_rate) -> keras.Model:
 
 
 def create_compiled_model_mobilenet2(input_shape, learning_rate) -> keras.Model:
+    # model = keras.Sequential()
+    # model.add(keras.applications.MobileNetV2(include_top=False, weights="imagenet", input_shape=input_shape))
+    # model.add(tf.keras.layers.GlobalAveragePooling2D())
+    # model.add(layers.Dense(1, activation='sigmoid'))
+    # model.layers[0].trainable = False
+    #
+    # # compile model
+    # opt = keras.optimizers.Adam(lr=learning_rate)
+    # model.compile(optimizer=opt, loss='binary_crossentropy',
+    #               metrics=['accuracy', f1_m, precision_m, recall_m])
+    # return model
     model = keras.Sequential()
-    model.add(keras.applications.MobileNetV2(include_top=False, weights="imagenet", input_shape=input_shape))
-    model.add(tf.keras.layers.GlobalAveragePooling2D())
+    model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=input_shape))
+    model.add(layers.Conv2D(32, (3, 3), activation='relu'))
+    model.add(layers.MaxPool2D(2, 2))
+    model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+    model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+    model.add(layers.MaxPool2D(2, 2))
+    model.add(layers.Conv2D(128, (3, 3), activation='relu'))
+    model.add(layers.MaxPool2D(2, 2))
+    model.add(layers.Flatten())
+    model.add(layers.Dense(512, activation='relu'))
+    model.add(layers.Dropout(0.2))
     model.add(layers.Dense(1, activation='sigmoid'))
-    model.layers[0].trainable = False
-
-    # compile model
     opt = keras.optimizers.Adam(lr=learning_rate)
     model.compile(optimizer=opt, loss='binary_crossentropy',
                   metrics=['accuracy', f1_m, precision_m, recall_m])

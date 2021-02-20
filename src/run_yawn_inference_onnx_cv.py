@@ -6,9 +6,9 @@ import cv2
 import numpy as np
 import tensorflow as tf
 
-from yawn_train import download_utils, inference_utils
-from yawn_train.model_config import IMAGE_PAIR_SIZE, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS
-from yawn_train.video_face_reader import VideoFaceDetector
+from yawn_train.src import download_utils, inference_utils
+from yawn_train.src.model_config import IMAGE_PAIR_SIZE, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS
+from yawn_train.src.video_face_reader import VideoFaceDetector
 
 assert tf.__version__.startswith('2')
 
@@ -27,13 +27,14 @@ print("GPU is", "available" if tf.test.is_gpu_available() else "NOT AVAILABLE")
 # it runs much slower than float version on CPU
 # https://github.com/tensorflow/tensorflow/issues/21698#issuecomment-414764709
 CONFIDENCE_THRESHOLD = 0.2
-VIDEO_FILE = 0  # '/Users/igla/Downloads/Memorable Monologue- Talking in the Third Person.mp4'
-TEST_DIR = './out_test_mouth/'
+VIDEO_FILE = '/Users/igla/Downloads/YawDD dataset/Mirror/Male_mirror Avi Videos/8-MaleGlassesBeard-Yawning.avi'  # '/Users/igla/Downloads/critical_video_yawn.mp4' #'/Users/igla/Downloads/T001yawning.mp4'
+TEST_DIR = '../out_test_mouth/'
 TEMP_FOLDER = "./temp"
-BATCH_IMG_COUNT_PROCESS = 10  # number of images per process
+BATCH_IMG_COUNT_PROCESS = 1  # number of images per process
+WRITE_VIDEO = True
 
 # Provide trained KERAS model
-cv_model = cv2.dnn.readNetFromONNX('./out_epoch_30/yawn_model_onnx_30.onnx')
+cv_model = cv2.dnn.readNetFromONNX('/Users/igla/Downloads/out_epoch_70_lite-3/yawn_model_70.onnx')
 
 caffe_weights, caffe_config = download_utils.download_caffe(TEMP_FOLDER)
 # Reads the network model stored in Caffe framework's format.
@@ -57,7 +58,10 @@ def clear_test():
 
 def prepare_input_blob(im):
     if im.shape[0] != MAX_IMAGE_WIDTH or im.shape[1] != MAX_IMAGE_HEIGHT:
-        im = cv2.resize(im, IMAGE_PAIR_SIZE)
+        try:
+            im = cv2.resize(im, IMAGE_PAIR_SIZE)
+        except:
+            print('Exception')
     im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
     blob = cv2.dnn.blobFromImage(im,
                                  scalefactor=1 / 255.0,
@@ -84,9 +88,18 @@ def prepare_input_blob_multiple(images: list):
     return blob, img_list
 
 
+video_writer = None
+
+
 def image_reader(frame, face):
-    (startX, startY, endX, endY) = face
-    frame_crop = frame[startY:endY, startX:endX]
+    global video_writer
+    if video_writer is None:
+        height, width, layers = frame.shape
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        video_writer = cv2.VideoWriter('./output_video.mp4', fourcc, 29.97, (width, height))
+
+    (start_x, startY, endX, endY) = face
+    frame_crop = frame[startY:endY, start_x:endX]
 
     im_input_cv, gray_img = prepare_input_blob(frame_crop)
 
@@ -108,14 +121,21 @@ def image_reader(frame, face):
     if is_mouth_opened:
         mouth_open_counter = mouth_open_counter + 1
 
-    cv2.putText(frame, f"Mouth opened {mouth_open_counter}", (0, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.8,
-                (0, 0, 255),
+    cv2.putText(frame, f"Mouth opened {mouth_open_counter}", (20, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.8,
+                (0, 0, 0),
                 2)
-    opened_str = "Opened" if is_mouth_opened else "Closed"
-    cv2.putText(frame, opened_str, (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+    opened_str = "State: " + ("Opened" if is_mouth_opened else "Closed")
+    cv2.putText(frame, opened_str, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
+
+    backtorgb = cv2.cvtColor(gray_img, cv2.COLOR_GRAY2RGB)
+    x_offset = 20
+    y_offset = 75
+    frame[y_offset:y_offset + backtorgb.shape[0], x_offset:x_offset + backtorgb.shape[1]] = backtorgb
 
     cv2.imshow("Image", frame)
     cv2.waitKey(1)
+
+    video_writer.write(frame)
 
 
 def image_reader_batch(frame, face):
@@ -190,3 +210,6 @@ if __name__ == '__main__':
     else:
         video_face_detector.start_batch(image_reader_batch)
     cv2.destroyAllWindows()
+
+    if video_writer is not None:
+        video_writer.release()

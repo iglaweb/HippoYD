@@ -5,10 +5,11 @@ from pathlib import Path
 import cv2
 import numpy as np
 import tensorflow as tf
+from tensorflow import keras
 
-from yawn_train import download_utils, inference_utils
-from yawn_train.model_config import IMAGE_PAIR_SIZE, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS
-from yawn_train.video_face_reader import VideoFaceDetector
+from yawn_train.src import download_utils, inference_utils
+from yawn_train.src.model_config import IMAGE_PAIR_SIZE
+from yawn_train.src.video_face_reader import VideoFaceDetector
 
 assert tf.__version__.startswith('2')
 
@@ -28,35 +29,11 @@ print("GPU is", "available" if tf.test.is_gpu_available() else "NOT AVAILABLE")
 # https://github.com/tensorflow/tensorflow/issues/21698#issuecomment-414764709
 CONFIDENCE_THRESHOLD = 0.2
 VIDEO_FILE = 0  # '/Users/igla/Downloads/Memorable Monologue- Talking in the Third Person.mp4'
-TEST_DIR = './out_test_mouth/'
+TEST_DIR = '../out_test_mouth/'
 TEMP_FOLDER = "./temp"
 
-
-def load_pb_model():
-    print("load graph")
-    with tf.io.gfile.GFile(GRAPH_PB_PATH, 'rb') as f:
-        graph_def = tf.compat.v1.GraphDef()
-        graph_def.ParseFromString(f.read())
-
-    with tf.Graph().as_default() as graph:
-        tf.import_graph_def(graph_def, name='prefix')
-
-    graph_nodes = [n for n in graph_def.node]
-    names = []
-    for t in graph_nodes:
-        names.append(t.name)
-    print(names)
-
-    for op in graph.get_operations():
-        print(op.name)
-
-    input = graph.get_tensor_by_name('prefix/x:0')
-    output = graph.get_tensor_by_name('prefix/Identity:0')
-    return tf.compat.v1.Session(graph=graph), input, output
-
-
-GRAPH_PB_PATH = './out_epoch_60/yawn_model_60.pb'
-pb_session_tuple = load_pb_model()
+# Provide trained KERAS model
+model = keras.models.load_model('../out_epoch_30/yawn_model_30.h5')
 
 caffe_weights, caffe_config = download_utils.download_caffe(TEMP_FOLDER)
 # Reads the network model stored in Caffe framework's format.
@@ -69,14 +46,9 @@ def predict_image_data(img_array):
     # scale pixel values to [0, 1]
     img_array = img_array.astype(np.float32)
     img_array /= 255.0
-    img_array = np.reshape(img_array, (-1, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS))
-    # img_array = tf.expand_dims(img_array, axis=0)  # Create batch axis
-
-    sess, input, output = pb_session_tuple
-    y_out = sess.run(output, feed_dict={input: img_array})
-
-    # model_predictions = model.predict(img_array)
-    predicted_confidence = np.max(y_out[0])
+    img_array = tf.expand_dims(img_array, axis=0)  # Create batch axis
+    model_predictions = model.predict(img_array)
+    predicted_confidence = np.max(model_predictions[0])
 
     diff = inference_utils.get_timestamp_ms() - start
     print(f'Time elapsed {diff} ms')
@@ -90,6 +62,14 @@ def predict_image_data(img_array):
         f" {predicted_confidence:.2f} {condition}, class={predicted_label_id})"
     )
     return predicted_confidence
+
+
+def predict_image_path(input_img):
+    loaded_img = keras.preprocessing.image.load_img(
+        input_img, target_size=IMAGE_PAIR_SIZE, color_mode="grayscale"
+    )
+    img_array = keras.preprocessing.image.img_to_array(loaded_img)
+    predict_image_data(img_array)
 
 
 def clear_test():
@@ -122,5 +102,5 @@ if __name__ == '__main__':
     clear_test()
 
     video_face_detector = VideoFaceDetector(VIDEO_FILE, face_model)
-    video_face_detector.start(image_reader)
+    video_face_detector.start_single(image_reader)
     cv2.destroyAllWindows()

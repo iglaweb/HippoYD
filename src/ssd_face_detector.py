@@ -20,6 +20,8 @@ class SSDFaceDetector(object):
         for i in range(0, detections.shape[2]):
             box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
             (startX, startY, endX, endY) = box.astype("int")
+            startX = max(startX, 0)
+            startY = max(startY, 0)
             confidence = detections[0, 0, i, 2]
             if confidence >= 0.4:
                 # print('Face confidence: ' + str(confidence))

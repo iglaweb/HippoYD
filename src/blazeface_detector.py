@@ -5,11 +5,11 @@ import cv2
 import numpy as np
 
 # adapt paths for jupyter
-module_path = os.path.abspath(os.path.join('..'))
+module_path = os.path.abspath(os.path.join('../..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
 
-from yawn_train.blazeface_utils import create_letterbox_image, process_detections
+from yawn_train.src.blazeface_utils import create_letterbox_image, process_detections
 
 
 class BlazeFaceDetector(object):

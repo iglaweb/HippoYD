@@ -6,9 +6,9 @@ import cv2
 import numpy as np
 import tensorflow as tf
 
-from yawn_train import download_utils, inference_utils
-from yawn_train.model_config import IMAGE_PAIR_SIZE
-from yawn_train.video_face_reader import VideoFaceDetector
+from yawn_train.src import download_utils, inference_utils
+from yawn_train.src.model_config import IMAGE_PAIR_SIZE
+from yawn_train.src.video_face_reader import VideoFaceDetector
 
 assert tf.__version__.startswith('2')
 
@@ -149,5 +149,5 @@ if __name__ == '__main__':
     mouth_open_counter = 0
 
     video_face_detector = VideoFaceDetector(VIDEO_FILE, face_model)
-    video_face_detector.start(image_reader)
+    video_face_detector.start_single(image_reader)
     cv2.destroyAllWindows()

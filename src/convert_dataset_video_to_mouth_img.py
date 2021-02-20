@@ -6,22 +6,22 @@ from pathlib import Path
 
 # adapt paths for jupyter
 
-module_path = os.path.abspath(os.path.join('..'))
+module_path = os.path.abspath(os.path.join('../..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
 
-from yawn_train.blazeface_detector import BlazeFaceDetector
+from yawn_train.src.blazeface_detector import BlazeFaceDetector
 
 import cv2
 import dlib
 import numpy as np
 from imutils import face_utils
 
-from yawn_train.ssd_face_detector import SSDFaceDetector
+from yawn_train.src.ssd_face_detector import SSDFaceDetector
 
 # define one constants, for mouth aspect ratio to indicate open mouth
-from yawn_train import download_utils, detect_utils, inference_utils
-from yawn_train.model_config import MOUTH_AR_THRESH, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT
+from yawn_train.src import download_utils, inference_utils, detect_utils
+from yawn_train.src.model_config import MOUTH_AR_THRESH, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT
 
 
 class ImageResult:
@@ -63,7 +63,7 @@ class FACE_TYPE(Enum):
         return FACE_TYPE(0)
 
 
-MOUTH_FOLDER = "./mouth_state_new4"
+MOUTH_FOLDER = "./mouth_state_new7"
 MOUTH_OPENED_FOLDER = os.path.join(MOUTH_FOLDER, 'opened')
 MOUTH_CLOSED_FOLDER = os.path.join(MOUTH_FOLDER, 'closed')
 
@@ -104,6 +104,11 @@ import tensorflow as tf
 bf_model = download_utils.download_blazeface(TEMP_FOLDER)
 blazeface_tf = tf.keras.models.load_model(bf_model, compile=False)
 blazefaceDetector = BlazeFaceDetector(blazeface_tf)
+
+# img = cv2.imread(
+#     '/Users/igla/Desktop/Screenshot 2021-01-14 at 12.29.25.png', cv2.IMREAD_GRAYSCALE)
+# ultrafacedetector = UltraFaceDetector("/Users/igla/Downloads/version-RFB-320_simplified.onnx")
+
 """
 Take mouth ratio only from dlib rect. Use dnn frame for output
 """

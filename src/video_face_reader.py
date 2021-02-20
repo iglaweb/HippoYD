@@ -2,7 +2,7 @@ import threading
 
 import cv2
 
-from yawn_train.ssd_face_detector import SSDFaceDetector
+from yawn_train.src.ssd_face_detector import SSDFaceDetector
 
 
 class VideoFaceDetector(object):
@@ -17,7 +17,9 @@ class VideoFaceDetector(object):
 
     def start_single(self, image_reader):
         while True:
-            _, frame = self.vid.read()
+            ret, frame = self.vid.read()
+            if ret is False:
+                break
             face_list = self.ssd_face_detector.detect_face(frame)
             if len(face_list) == 0:
                 print('Face list empty')
@@ -35,7 +37,6 @@ class VideoFaceDetector(object):
                     if len(face_list) == 0:
                         print('Face not found')
                         continue
-
                     self.last_face = face_list[0]
                     self.last_frame = None
             except BaseException as e:

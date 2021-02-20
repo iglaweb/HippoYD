@@ -7,9 +7,9 @@ import numpy as np
 import onnxruntime as rt
 import tensorflow as tf
 
-from yawn_train import download_utils, inference_utils
-from yawn_train.model_config import IMAGE_PAIR_SIZE, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT
-from yawn_train.video_face_reader import VideoFaceDetector
+from yawn_train.src import download_utils, inference_utils
+from yawn_train.src.model_config import IMAGE_PAIR_SIZE, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT
+from yawn_train.src.video_face_reader import VideoFaceDetector
 
 assert tf.__version__.startswith('2')
 
@@ -29,7 +29,7 @@ print("GPU is", "available" if tf.test.is_gpu_available() else "NOT AVAILABLE")
 # https://github.com/tensorflow/tensorflow/issues/21698#issuecomment-414764709
 CONFIDENCE_THRESHOLD = 0.2
 VIDEO_FILE = 0  # '/Users/igla/Downloads/Memorable Monologue- Talking in the Third Person.mp4'
-TEST_DIR = './out_test_mouth/'
+TEST_DIR = '../out_test_mouth/'
 TEMP_FOLDER = "./temp"
 
 caffe_weights, caffe_config = download_utils.download_caffe(TEMP_FOLDER)
@@ -37,7 +37,7 @@ caffe_weights, caffe_config = download_utils.download_caffe(TEMP_FOLDER)
 face_model = cv2.dnn.readNetFromCaffe(caffe_config, caffe_weights)
 
 
-onnx_sess = rt.InferenceSession("./out_epoch_30/yawn_model_onnx_30.onnx")
+onnx_sess = rt.InferenceSession("../out_epoch_30/yawn_model_onnx_30.onnx")
 input_name = onnx_sess.get_inputs()[0].name
 label_name = onnx_sess.get_outputs()[0].name
 

@@ -4,13 +4,13 @@ import torch
 from imutils import face_utils
 from skimage import io
 
-from yawn_train import detect_utils
-from yawn_train.convert_dataset_video_to_mouth_img import MOUTH_AR_THRESH
+from yawn_train.src import detect_utils
+from yawn_train.src.convert_dataset_video_to_mouth_img import MOUTH_AR_THRESH
 
 print(torch.__version__)
 (mStart, mEnd) = face_utils.FACIAL_LANDMARKS_IDXS["mouth"]
 
-image_path = '/Users/igla/PycharmProjects/DrowsinessClassification/yawn_train/incorrect/0.7_image_77917_0.46.jpg'
+image_path = '/yawn_train/incorrect/0.7_image_77917_0.46.jpg'
 fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, device='cpu', flip_input=False)
 input = io.imread(image_path)
 shape = fa.get_landmarks(input)[-1]
@@ -48,7 +48,7 @@ def scan_folder(directory):
             img_threshold = filename_only.split("_")
             conf = float(img_threshold[2])
             if conf >= MOUTH_AR_THRESH > mouth_mar or conf < MOUTH_AR_THRESH <= mouth_mar:
-                os.makedirs('./incorrect/', exist_ok=True)
+                os.makedirs('../incorrect/', exist_ok=True)
                 copyfile(path, './incorrect/' + str(mouth_mar) + '_' + os.path.basename(filename))
             continue
         else:
@@ -72,7 +72,7 @@ def filter_out(directory):
             conf = float(img_threshold[2])
             if mouth_mar > 1.0 and conf < 0.3:
                 print('Filter image by confidence: ' + os.path.basename(filename))
-                os.makedirs('./filtered/', exist_ok=True)
+                os.makedirs('../filtered/', exist_ok=True)
                 copyfile(path, './filtered/' + str(mouth_mar) + '_' + os.path.basename(filename))
                 continue
 
@@ -85,7 +85,7 @@ def filter_out(directory):
 
             if nose_left or nose_right:
                 print('Filter image: ' + os.path.basename(filename))
-                os.makedirs('./filtered/', exist_ok=True)
+                os.makedirs('../filtered/', exist_ok=True)
                 copyfile(path, './filtered/' + str(mouth_mar) + '_' + os.path.basename(filename))
 
 

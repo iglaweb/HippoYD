@@ -5,7 +5,7 @@ from enum import Enum
 
 from tensorflow.python.keras.callbacks import CSVLogger
 
-module_path = os.path.abspath(os.path.join('..'))
+module_path = os.path.abspath(os.path.join('../..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
 
@@ -20,8 +20,8 @@ from keras_preprocessing.image import ImageDataGenerator
 from tensorflow import keras
 from tensorflow.python.client import device_lib
 
-from yawn_train import train_utils
-from yawn_train.model_config import MOUTH_AR_THRESH, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS, IMAGE_PAIR_SIZE
+from yawn_train.src import train_utils
+from yawn_train.src.model_config import MOUTH_AR_THRESH, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS, IMAGE_PAIR_SIZE
 
 # https://github.com/tensorflow/tensorflow/issues/24828#issuecomment-464910864
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
@@ -139,12 +139,14 @@ train_utils.show_img_preview(
 print('Create Train Image Data Generator')
 # construct the image generator for data augmentation
 train_datagen = ImageDataGenerator(
-    rotation_range=30,  # randomly rotate image
+    # Values less than 1.0 darken the image, values larger than 1.0 brighten the image, where 1.0 has no effect on brightness.
+    brightness_range=[0.6, 1.2],
+    rotation_range=35,  # randomly rotate image
     rescale=1. / 255,
     shear_range=0.1,
     horizontal_flip=True,
-    fill_mode="nearest",  # zoom_range will corrupt img
-    preprocessing_function=train_utils.add_noise)
+    fill_mode="nearest"  # zoom_range will corrupt img
+)
 train_generator = train_datagen.flow_from_directory(
     MOUTH_PREPARE_TRAIN_FOLDER,  # source directory for training images
     batch_size=BATCH_SIZE,
@@ -155,7 +157,7 @@ train_generator = train_datagen.flow_from_directory(
 )
 
 print('Preview 20 images from train generator')
-train_utils.plot_dataget_first_20(train_generator)
+train_utils.plot_data_generator_first_20(train_generator)
 
 class_indices = train_generator.class_indices
 print(class_indices)  # {'closed': 0, 'opened': 1}
