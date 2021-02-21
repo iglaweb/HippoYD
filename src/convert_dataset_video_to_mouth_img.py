@@ -63,7 +63,8 @@ class FACE_TYPE(Enum):
         return FACE_TYPE(0)
 
 
-MOUTH_FOLDER = "./mouth_state_new7"
+COLOR_IMG = True
+MOUTH_FOLDER = "./mouth_state_new8" + ("_color" if COLOR_IMG else "")
 MOUTH_OPENED_FOLDER = os.path.join(MOUTH_FOLDER, 'opened')
 MOUTH_CLOSED_FOLDER = os.path.join(MOUTH_FOLDER, 'closed')
 
@@ -188,7 +189,7 @@ def recognize_image(video_id: int, video_path: str, frame, frame_id: int, face_t
     if target_face_roi is None:
         target_face_roi = face_roi_dlib
 
-    if len(frame.shape) == 2:  # single channel
+    if len(frame.shape) == 2 or COLOR_IMG:  # single channel
         gray_img = target_face_roi
     else:
         gray_img = cv2.cvtColor(target_face_roi, cv2.COLOR_BGR2GRAY)
@@ -256,13 +257,15 @@ def process_video(video_id, video_path) -> VideoResult:
             continue
 
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        recognize_frame = frame if (COLOR_IMG) else gray_frame
         face_list_dlib = inference_utils.detect_face_dlib(detector, gray_frame)
         if len(face_list_dlib) == 0:
             # skip images not recognized by dlib (dlib lndmrks only good when dlib face found)
             continue
 
         if face_type == FACE_TYPE.DLIB:
-            image_result = recognize_image(video_id, video_path, gray_frame, frame_id, face_type, face_list_dlib[0])
+            image_result = recognize_image(video_id, video_path, recognize_frame, frame_id, face_type,
+                                           face_list_dlib[0])
             is_processed = image_result.is_processed
             if is_processed:
                 face_type = face_type.get_next()
@@ -280,7 +283,8 @@ def process_video(video_id, video_path) -> VideoResult:
                 print('Face not found with Caffe DNN')
                 continue
 
-            image_result = recognize_image(video_id, video_path, gray_frame, frame_id, face_type, face_list_dlib[0],
+            image_result = recognize_image(video_id, video_path, recognize_frame, frame_id, face_type,
+                                           face_list_dlib[0],
                                            face_list_dnn[0])
             is_processed = image_result.is_processed
             if is_processed:
@@ -297,7 +301,8 @@ def process_video(video_id, video_path) -> VideoResult:
                 face_type = face_type.get_next()
                 print('Face not found with Blazeface')
                 continue
-            image_result = recognize_image(video_id, video_path, gray_frame, frame_id, face_type, face_list_dlib[0],
+            image_result = recognize_image(video_id, video_path, recognize_frame, frame_id, face_type,
+                                           face_list_dlib[0],
                                            face_list_dnn[0])
             is_processed = image_result.is_processed
             if is_processed:
