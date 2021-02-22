@@ -23,6 +23,8 @@ def get_args():
                         help="input_folder")
     parser.add_argument("--classes", type=str, default='opened, closed',
                         help="classes")
+    parser.add_argument("--include_hidden", type=bool, default=False,
+                        help="include hidden files")
     args = parser.parse_args()
     args.shape_override = None
     if args.classes:

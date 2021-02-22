@@ -31,12 +31,12 @@ def gray_to_rgb(img):
     return np.repeat(img, 3, 2)
 
 
-def plot_data_generator_first_20(train_generator):
+def plot_data_generator_first_20(train_generator, grayscale: bool):
     img_list = []
     for i in range(20):
         batch = next(train_generator)
         img = batch[0][0]
-        test_image = gray_to_rgb(img)
+        test_image = gray_to_rgb(img) if grayscale else img
         img_list.append(test_image)
     columns = 4
     rows = 5
@@ -50,9 +50,13 @@ def plot_data_generator_first_20(train_generator):
     plt.show()
 
 
-def predict_image(model, input_img):
+
+
+def predict_image(model, input_img, grayscale: bool):
     loaded_img = keras.preprocessing.image.load_img(
-        input_img, target_size=IMAGE_PAIR_SIZE, color_mode="grayscale"
+        input_img,
+        target_size=IMAGE_PAIR_SIZE,
+        color_mode='grayscale' if grayscale else 'rgb'
     )
     img_array = keras.preprocessing.image.img_to_array(loaded_img)
     # scale pixel values to [0, 1]
@@ -239,30 +243,13 @@ def create_compiled_model_lite(input_shape, learning_rate) -> keras.Model:
 
 
 def create_compiled_model_mobilenet2(input_shape, learning_rate) -> keras.Model:
-    # model = keras.Sequential()
-    # model.add(keras.applications.MobileNetV2(include_top=False, weights="imagenet", input_shape=input_shape))
-    # model.add(tf.keras.layers.GlobalAveragePooling2D())
-    # model.add(layers.Dense(1, activation='sigmoid'))
-    # model.layers[0].trainable = False
-    #
-    # # compile model
-    # opt = keras.optimizers.Adam(lr=learning_rate)
-    # model.compile(optimizer=opt, loss='binary_crossentropy',
-    #               metrics=['accuracy', f1_m, precision_m, recall_m])
-    # return model
     model = keras.Sequential()
-    model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=input_shape))
-    model.add(layers.Conv2D(32, (3, 3), activation='relu'))
-    model.add(layers.MaxPool2D(2, 2))
-    model.add(layers.Conv2D(64, (3, 3), activation='relu'))
-    model.add(layers.Conv2D(64, (3, 3), activation='relu'))
-    model.add(layers.MaxPool2D(2, 2))
-    model.add(layers.Conv2D(128, (3, 3), activation='relu'))
-    model.add(layers.MaxPool2D(2, 2))
-    model.add(layers.Flatten())
-    model.add(layers.Dense(512, activation='relu'))
-    model.add(layers.Dropout(0.2))
+    model.add(keras.applications.MobileNetV2(
+        include_top=False, weights="imagenet", input_shape=input_shape))
+    model.add(tf.keras.layers.GlobalAveragePooling2D())
     model.add(layers.Dense(1, activation='sigmoid'))
+    model.layers[0].trainable = False  # Freeze the convolutional base
+    # compile model
     opt = keras.optimizers.Adam(lr=learning_rate)
     model.compile(optimizer=opt, loss='binary_crossentropy',
                   metrics=['accuracy', f1_m, precision_m, recall_m])
@@ -485,21 +472,27 @@ def evaluate_tflite_float(float_path, test_images, test_labels):
     print('Floating TFLite test_accuracy:', test_accuracy_tflite_f)
 
 
+def listdir_nohidden(path):
+    for f in os.listdir(path):
+        if not f.startswith('.'):
+            yield f
+
+
 def listdir_fullpath(d):
-    return [os.path.join(d, f) for f in os.listdir(d)]
+    return [os.path.join(d, f) for f in list(listdir_nohidden(d))]
 
 
-def predict_random_test_img(model, path: str, class_name: str):
+def predict_random_test_img(model, path: str, class_name: str, grayscale: bool):
     opened_mouth_img = os.path.join(path, class_name)
     open_img_paths = listdir_fullpath(opened_mouth_img)
     random_img = random.choice(open_img_paths)
     img = mpimg.imread(random_img)
-    plt.imshow(img, cmap="gray")
+    plt.imshow(img, cmap="gray" if grayscale else None)
     plt.show()
-    predict_image(model, random_img)
+    predict_image(model, random_img, grayscale)
 
 
-def show_img_preview(out_path_img: str, img_class_paths1, img_class_paths2, threshold):
+def show_img_preview(out_path_img: str, img_class_paths1, img_class_paths2, threshold, grayscale: bool):
     # Parameters for our graph; we'll output images in a 4x4 configuration
     nrows = 4
     ncols = 4
@@ -525,7 +518,7 @@ def show_img_preview(out_path_img: str, img_class_paths1, img_class_paths2, thre
 
         img = mpimg.imread(img_path)
         plt.xlabel("{} ({})".format(img_filename, is_opened, color='blue'))
-        plt.imshow(img, cmap="gray")
+        plt.imshow(img, cmap="gray" if grayscale else None)
     plt.savefig(out_path_img)
     plt.show()
 
