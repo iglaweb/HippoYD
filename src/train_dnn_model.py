@@ -355,7 +355,11 @@ class DNNTrainer(object):
             dpi=96,
         )
 
-        train_utils.export_pb(SAVED_MODEL, FROZEN_MODEL_PATH)
+        train_utils.export_pb(
+            SAVED_MODEL,
+            FROZEN_MODEL_PATH,
+            [None, self.max_width, self.max_height, self.color_channels]
+        )
 
         # Save the entire model to a HDF5 file.
         # The '.h5' extension indicates that the model should be saved to HDF5.

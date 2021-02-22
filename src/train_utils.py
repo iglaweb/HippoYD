@@ -50,8 +50,6 @@ def plot_data_generator_first_20(train_generator, grayscale: bool):
     plt.show()
 
 
-
-
 def predict_image(model, input_img, grayscale: bool):
     loaded_img = keras.preprocessing.image.load_img(
         input_img,
@@ -404,12 +402,12 @@ def convert_tf2onnx(saved_model, onnx_path):
         print('Failed to convert saved model to onnx', saved_model)
 
 
-def export_pb(saved_model, output_path):
+def export_pb(saved_model, output_path, input_shape):
     from tensorflow.python.framework.convert_to_constants import convert_variables_to_constants_v2
     model = tf.saved_model.load(saved_model)
     full_model = tf.function(lambda x: model(x))
     f = full_model.get_concrete_function(
-        tf.TensorSpec(shape=[None, 100, 100, 1],
+        tf.TensorSpec(shape=input_shape,
                       dtype=tf.float32))
     f2 = convert_variables_to_constants_v2(f)
     graph_def = f2.graph.as_graph_def()
