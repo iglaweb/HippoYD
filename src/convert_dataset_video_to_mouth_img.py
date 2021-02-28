@@ -1,3 +1,4 @@
+import collections
 import csv
 import os
 import sys
@@ -6,10 +7,11 @@ from pathlib import Path
 
 # adapt paths for jupyter
 
-module_path = os.path.abspath(os.path.join('../..'))
+module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
 
+import face_alignment
 from yawn_train.src.blazeface_detector import BlazeFaceDetector
 
 import cv2
@@ -20,7 +22,7 @@ from imutils import face_utils
 from yawn_train.src.ssd_face_detector import SSDFaceDetector
 
 # define one constants, for mouth aspect ratio to indicate open mouth
-from yawn_train.src import download_utils, inference_utils, detect_utils
+from yawn_train.src import download_utils, detect_utils, inference_utils
 from yawn_train.src.model_config import MOUTH_AR_THRESH, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT
 
 
@@ -35,7 +37,8 @@ class ImageResult:
 
 
 class VideoResult:
-    def __init__(self, dlib_counter, caffe_counter, blazeface_counter, opened_counter, closed_counter):
+    def __init__(self, total_frames, dlib_counter, caffe_counter, blazeface_counter, opened_counter, closed_counter):
+        self.total_frames = total_frames
         self.dlib_counter = dlib_counter
         self.caffe_counter = caffe_counter
         self.blazeface_counter = blazeface_counter
@@ -44,7 +47,7 @@ class VideoResult:
 
     @staticmethod
     def empty():
-        return VideoResult(0, 0, 0, 0, 0)
+        return VideoResult(0, 0, 0, 0, 0, 0)
 
 
 class FACE_TYPE(Enum):
@@ -63,8 +66,13 @@ class FACE_TYPE(Enum):
         return FACE_TYPE(0)
 
 
-COLOR_IMG = True
-MOUTH_FOLDER = "./mouth_state_new8" + ("_color" if COLOR_IMG else "")
+class LNDMR_TYPE(Enum):
+    DLIB = 0
+    FACEALIGN = 1
+
+
+COLOR_IMG = False
+MOUTH_FOLDER = "./mouth_state_new10" + ("_color" if COLOR_IMG else "")
 MOUTH_OPENED_FOLDER = os.path.join(MOUTH_FOLDER, 'opened')
 MOUTH_CLOSED_FOLDER = os.path.join(MOUTH_FOLDER, 'closed')
 
@@ -127,6 +135,68 @@ def should_process_video(video_name: str) -> bool:
            video_name.endswith('-Yawning.avi')
 
 
+pred_type = collections.namedtuple('prediction_type', ['slice', 'color'])
+pred_types = {'face': pred_type(slice(0, 17), (0.682, 0.780, 0.909, 0.5)),
+              'eyebrow1': pred_type(slice(17, 22), (1.0, 0.498, 0.055, 0.4)),
+              'eyebrow2': pred_type(slice(22, 27), (1.0, 0.498, 0.055, 0.4)),
+              'nose': pred_type(slice(27, 31), (0.345, 0.239, 0.443, 0.4)),
+              'nostril': pred_type(slice(31, 36), (0.345, 0.239, 0.443, 0.4)),
+              'eye1': pred_type(slice(36, 42), (0.596, 0.875, 0.541, 0.3)),
+              'eye2': pred_type(slice(42, 48), (0.596, 0.875, 0.541, 0.3)),
+              'lips': pred_type(slice(48, 60), (0.596, 0.875, 0.541, 0.3)),
+              'teeth': pred_type(slice(60, 68), (0.596, 0.875, 0.541, 0.4))
+              }
+face_detector = 'sfd'
+face_detector_kwargs = {
+    "filter_threshold": 0.8
+}
+fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._3D, flip_input=True, device='cpu',
+                                  face_detector=face_detector)
+
+
+def get_mouth_opened(frame, start_x, start_y, end_x, end_y) -> tuple:
+    mouth_shape = predictor(frame, dlib.rectangle(start_x, start_y, end_x, end_y))
+    mouth_shape = face_utils.shape_to_np(mouth_shape)
+    mouth_arr = mouth_shape[mStart:mEnd]
+    mouth_mar_dlib = detect_utils.mouth_aspect_ratio(mouth_arr)
+    mouth_mar_dlib = round(mouth_mar_dlib, 2)
+    # print(mouth_mar_dlib)
+
+    face_roi_dlib = frame[start_y:end_y, start_x:end_x]
+    height_frame, width_frame = face_roi_dlib.shape[:2]
+    # swapping the read and green channels
+    # https://stackoverflow.com/a/56933474/1461625
+    detected_faces = []
+    detected_faces.append([0, 0, width_frame, height_frame])
+    preds = fa.get_landmarks_from_image(face_roi_dlib, detected_faces)[-1]
+
+    pred_type = pred_types['lips']
+    X = preds[pred_type.slice, 0]
+    Y = preds[pred_type.slice, 1]
+    mouth_shape_3ddfa = []
+    for x, y in zip(X, Y):
+        mouth_shape_3ddfa.append((x, y))
+
+    # shape = []
+    # for idx, pred_type in enumerate(pred_types.values()):
+    #     X = preds[pred_type.slice, 0]
+    #     Y = preds[pred_type.slice, 1]
+    #     for x, y in zip(X, Y):
+    #         shape.append((x, y))
+
+    mouth_mar_3ddfa = detect_utils.mouth_aspect_ratio(mouth_shape_3ddfa)
+    mouth_mar_3ddfa = round(mouth_mar_3ddfa, 2)
+    # print(mouth_mar_3ddfa)
+
+    is_opened_mouth_3ddfa = mouth_mar_3ddfa >= 0.75
+    is_opened_mouth_dlib = mouth_mar_dlib >= MOUTH_AR_THRESH
+
+    if is_opened_mouth_3ddfa == is_opened_mouth_dlib:
+        return is_opened_mouth_3ddfa, mouth_mar_dlib, LNDMR_TYPE.DLIB  # correct, same as dlib, return dlib ratio
+    else:
+        return is_opened_mouth_3ddfa, mouth_mar_3ddfa, LNDMR_TYPE.FACEALIGN  # return 3ddfa, as it's more accurate
+
+
 def recognize_image(video_id: int, video_path: str, frame, frame_id: int, face_type: FACE_TYPE, face_rect_dlib,
                     face_rect_dnn=None) -> ImageResult:
     (start_x, start_y, end_x, end_y) = face_rect_dlib
@@ -141,36 +211,18 @@ def recognize_image(video_id: int, video_path: str, frame, frame_id: int, face_t
         print('Cropped face is None. Skip')
         return ImageResult.not_processed()
 
-    # https://pyimagesearch.com/wp-content/uploads/2017/04/facial_landmarks_68markup.jpg
-    shape = predictor(frame, dlib.rectangle(start_x, start_y, end_x, end_y))
-    shape = face_utils.shape_to_np(shape)
-
-    # loop over the (x, y)-coordinates for the facial landmarks
-    # and draw them on the image
-    # for (x, y) in shape:
-    #   cv2.circle(face_roi, (x, y), 1, (0, 0, 255), -1)
-
-    # extract the mouth coordinates, then use the
-    # coordinates to compute the mouth aspect ratio
-    mouth = shape[mStart:mEnd]
-    mouth_mar = detect_utils.mouth_aspect_ratio(mouth)
-    # compute the convex hull for the mouth, then
-    # visualize the mouth
-    # mouthHull = cv2.convexHull(mouth)
-    # cv2.drawContours(frame, [mouthHull], -1, (0, 255, 0), 1)
-    # cv2.putText(frame, "MAR: {:.2f}".format(mouth_mar), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-
-    mouth_mar = round(mouth_mar, 2)
-    # not sure if mouth opened or not, so skip range 0.5 - 0.6
-    if MOUTH_AR_THRESH - 0.1 <= mouth_mar < MOUTH_AR_THRESH:
-        # print(f'Skip image with mar={mouth_mar}')
+    height_frame, width_frame = face_roi_dlib.shape[:2]
+    if height_frame < 50 or width_frame < 50:  # some images have invalid dlib face rect
+        print('Too small face. Skip')
         return ImageResult.not_processed()
+
+    # https://pyimagesearch.com/wp-content/uploads/2017/04/facial_landmarks_68markup.jpg
+    is_mouth_opened, open_mouth_ratio, lndmk_type = get_mouth_opened(frame, start_x, start_y, end_x, end_y)
 
     # skip frames in normal and talking, containing opened mouth (we detect only yawn)
     video_name = os.path.basename(video_path)
     is_video_no_yawn = video_name.endswith('-Normal.avi') or \
                        video_name.endswith('-Talking.avi')
-    is_mouth_opened = mouth_mar >= MOUTH_AR_THRESH
     if is_mouth_opened and is_video_no_yawn:
         # some videos may contain opened mouth, skip these situations
         return ImageResult.not_processed()
@@ -195,6 +247,7 @@ def recognize_image(video_id: int, video_path: str, frame, frame_id: int, face_t
         gray_img = cv2.cvtColor(target_face_roi, cv2.COLOR_BGR2GRAY)
     gray_img = detect_utils.resize_img(gray_img, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT)
 
+    lndmk_type_name = lndmk_type.name.lower()
     if is_mouth_opened:
         global read_mouth_open_counter
         read_mouth_open_counter = read_mouth_open_counter + 1
@@ -205,7 +258,7 @@ def recognize_image(video_id: int, video_path: str, frame, frame_id: int, face_t
         global saved_mouth_open_counter
         saved_mouth_open_counter = saved_mouth_open_counter + 1
         file_name = os.path.join(MOUTH_OPENED_FOLDER,
-                                 f'{read_mouth_open_counter}_{mouth_mar}_{video_id}_{frame_id}_{prefix}.jpg')
+                                 f'{read_mouth_open_counter}_{open_mouth_ratio}_{video_id}_{frame_id}_{prefix}_{lndmk_type_name}.jpg')
         cv2.imwrite(file_name, gray_img)
         return ImageResult(is_processed=True, is_opened_image=True)
     else:
@@ -218,9 +271,25 @@ def recognize_image(video_id: int, video_path: str, frame, frame_id: int, face_t
         global saved_mouth_close_counter
         saved_mouth_close_counter = saved_mouth_close_counter + 1
         file_name = os.path.join(MOUTH_CLOSED_FOLDER,
-                                 f'{read_mouth_close_counter}_{mouth_mar}_{video_id}_{frame_id}_{prefix}.jpg')
+                                 f'{read_mouth_close_counter}_{open_mouth_ratio}_{video_id}_{frame_id}_{prefix}_{lndmk_type_name}.jpg')
         cv2.imwrite(file_name, gray_img)
         return ImageResult(is_processed=True, is_opened_image=False)
+
+
+def detect_faces_complex(frame):
+    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    face_list_dlib = inference_utils.detect_face_dlib(detector, gray_frame)
+    if len(face_list_dlib) > 0:
+        return face_list_dlib, FACE_TYPE.DLIB
+
+    face_list_dnn_cafe = ssd_face_detector.detect_face(frame)
+    if len(face_list_dnn_cafe) > 0:
+        return face_list_dnn_cafe, FACE_TYPE.CAFFE
+
+    face_list_dnn_blaze = blazefaceDetector.detect_face(frame)
+    if len(face_list_dnn_blaze) > 0:
+        return face_list_dnn_blaze, FACE_TYPE.BLAZEFACE
+    return [], None
 
 
 def process_video(video_id, video_path) -> VideoResult:
@@ -242,30 +311,29 @@ def process_video(video_id, video_path) -> VideoResult:
 
     frame_id = 0
     face_type = FACE_TYPE.DLIB
-
     while True:
         ret, frame = cap.read()
-        frame_id = frame_id + 1
         if ret is False:
             break
         if frame is None:
             print('No images left in', video_path)
             break
-
         if np.shape(frame) == ():
             print('Empty image. Skip')
             continue
 
-        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        recognize_frame = frame if (COLOR_IMG) else gray_frame
-        face_list_dlib = inference_utils.detect_face_dlib(detector, gray_frame)
-        if len(face_list_dlib) == 0:
-            # skip images not recognized by dlib (dlib lndmrks only good when dlib face found)
+        frame_id = frame_id + 1
+
+        face_list, f_type = detect_faces_complex(frame)
+        if len(face_list) == 0:
+            # skip images not recognized by dlib or other detectors
             continue
 
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        recognize_frame = frame if COLOR_IMG else gray_frame
         if face_type == FACE_TYPE.DLIB:
             image_result = recognize_image(video_id, video_path, recognize_frame, frame_id, face_type,
-                                           face_list_dlib[0])
+                                           face_list[0])
             is_processed = image_result.is_processed
             if is_processed:
                 face_type = face_type.get_next()
@@ -284,7 +352,7 @@ def process_video(video_id, video_path) -> VideoResult:
                 continue
 
             image_result = recognize_image(video_id, video_path, recognize_frame, frame_id, face_type,
-                                           face_list_dlib[0],
+                                           face_list[0],
                                            face_list_dnn[0])
             is_processed = image_result.is_processed
             if is_processed:
@@ -302,7 +370,7 @@ def process_video(video_id, video_path) -> VideoResult:
                 print('Face not found with Blazeface')
                 continue
             image_result = recognize_image(video_id, video_path, recognize_frame, frame_id, face_type,
-                                           face_list_dlib[0],
+                                           face_list[0],
                                            face_list_dnn[0])
             is_processed = image_result.is_processed
             if is_processed:
@@ -330,6 +398,7 @@ def process_video(video_id, video_path) -> VideoResult:
         print('No destroy windows')
 
     return VideoResult(
+        frame_id,
         face_dlib_counter,
         face_blazeface_counter,
         face_caffe_counter,
@@ -343,14 +412,16 @@ def write_csv_stat(filename, video_count, video_result: VideoResult):
     if os.path.isfile(video_stat_dict_path) is False:
         with open(video_stat_dict_path, 'w') as f:
             w = csv.writer(f)
-            w.writerow(['Video id', 'File name', 'Image count', 'Opened img', 'Closed img'])
+            w.writerow(['Video id', 'File name', 'Total frames', 'Image saved', 'Opened img', 'Closed img'])
 
     # mode 'a' append
     with open(video_stat_dict_path, 'a') as f:
         w = csv.writer(f)
         img_counter = video_result.caffe_counter + video_result.dlib_counter + video_result.blazeface_counter
         w.writerow((
-            video_count, filename,
+            video_count,
+            filename,
+            video_result.total_frames,
             img_counter,
             video_result.opened_counter,
             video_result.closed_counter
@@ -359,6 +430,7 @@ def write_csv_stat(filename, video_count, video_result: VideoResult):
 
 def process_videos():
     video_count = 0
+    total_frames = 0
     for root, dirs, files in os.walk(YAWDD_DATASET_FOLDER):
         for file in files:
             if file.endswith(".avi"):
@@ -367,10 +439,12 @@ def process_videos():
                 print('Current video', file_name)
 
                 video_result = process_video(video_count, file_name)
+                total_frames = total_frames + video_result.total_frames
                 write_csv_stat(file_name, video_count, video_result)
 
     print(f'Videos processed: {video_count}')
-    print(f'Total images: {saved_mouth_open_counter + saved_mouth_close_counter}')
+    print(f'Total read images: {total_frames}')
+    print(f'Total saved images: {saved_mouth_open_counter + saved_mouth_close_counter}')
     print(f'Saved opened mouth images: {saved_mouth_open_counter}')
     print(f'Saved closed mouth images: {saved_mouth_close_counter}')
 
