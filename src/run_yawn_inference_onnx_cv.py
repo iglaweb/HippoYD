@@ -26,15 +26,15 @@ print("GPU is", "available" if tf.test.is_gpu_available() else "NOT AVAILABLE")
 
 # it runs much slower than float version on CPU
 # https://github.com/tensorflow/tensorflow/issues/21698#issuecomment-414764709
-CONFIDENCE_THRESHOLD = 0.2
-VIDEO_FILE = '/Users/igla/Downloads/YawDD dataset/Mirror/Male_mirror Avi Videos/8-MaleGlassesBeard-Yawning.avi'  # '/Users/igla/Downloads/critical_video_yawn.mp4' #'/Users/igla/Downloads/T001yawning.mp4'
+CONFIDENCE_THRESHOLD = 0.4
+VIDEO_FILE = '/Users/igla/Downloads/YawDD dataset 2/Mirror/Male_mirror Avi Videos/8-MaleGlassesBeard-Yawning.avi'  # '/Users/igla/Downloads/critical_video_yawn.mp4' #'/Users/igla/Downloads/T001yawning.mp4'
 TEST_DIR = '../out_test_mouth/'
 TEMP_FOLDER = "./temp"
 BATCH_IMG_COUNT_PROCESS = 1  # number of images per process
 WRITE_VIDEO = True
 
 # Provide trained KERAS model
-cv_model = cv2.dnn.readNetFromONNX('/Users/igla/Downloads/out_epoch_70_lite-3/yawn_model_70.onnx')
+cv_model = cv2.dnn.readNetFromONNX('/Users/igla/Downloads/out_epoch_80_lite-3/yawn_model_onnx_80.onnx')
 
 caffe_weights, caffe_config = download_utils.download_caffe(TEMP_FOLDER)
 # Reads the network model stored in Caffe framework's format.
@@ -93,7 +93,7 @@ video_writer = None
 
 def image_reader(frame, face):
     global video_writer
-    if video_writer is None:
+    if WRITE_VIDEO and video_writer is None:
         height, width, layers = frame.shape
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
         video_writer = cv2.VideoWriter('./output_video.mp4', fourcc, 29.97, (width, height))
@@ -121,11 +121,20 @@ def image_reader(frame, face):
     if is_mouth_opened:
         mouth_open_counter = mouth_open_counter + 1
 
-    cv2.putText(frame, f"Mouth opened {mouth_open_counter}", (20, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.8,
-                (0, 0, 0),
+    # add semitransparent overlay
+    x, y, w, h = 0, 0, 280, 60
+    sub_img = frame[y:y + h, x:x + w]
+    white_rect = np.ones(sub_img.shape, dtype=np.uint8) * 255
+    res = cv2.addWeighted(sub_img, 0.8, white_rect, 0.5, 1.0)
+    # Putting the image back to its position
+    frame[y:y + h, x:x + w] = res
+
+    text_color = (0, 150, 0)
+    cv2.putText(frame, f"Mouth opened #{mouth_open_counter}", (20, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.8,
+                text_color,
                 2)
-    opened_str = "State: " + ("Opened" if is_mouth_opened else "Closed")
-    cv2.putText(frame, opened_str, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
+    opened_str = "State: " + ("opened" if is_mouth_opened else "closed") + ", " + str(pred)
+    cv2.putText(frame, opened_str, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, text_color, 2)
 
     backtorgb = cv2.cvtColor(gray_img, cv2.COLOR_GRAY2RGB)
     x_offset = 20
@@ -135,7 +144,8 @@ def image_reader(frame, face):
     cv2.imshow("Image", frame)
     cv2.waitKey(1)
 
-    video_writer.write(frame)
+    if video_writer is not None:
+        video_writer.write(frame)
 
 
 def image_reader_batch(frame, face):
