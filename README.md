@@ -38,7 +38,7 @@ python split_data_into_datasets.py
 python train_yawn.py
 ```
 
-## Available [pretrained models](out_epoch_70_pro/) and demos
+## Available pretrained models [[full](out_epoch_80_full/), [lite](out_epoch_80_lite/)] and demos
 
 <table>
 	<tbody>
