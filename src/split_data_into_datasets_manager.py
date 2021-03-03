@@ -5,11 +5,11 @@ import numpy as np
 
 
 class SplitDatasetManager(object):
-    train_ratio = 0.80
-    val_ratio = 0.15
-    test_ratio = 0.05
 
-    def __init__(self, root_dir, classes_dir, include_hidden_files=False):
+    def __init__(self,
+                 root_dir,
+                 classes_dir,
+                 include_hidden_files=False):
         self.root_dir = root_dir
         self.classes_dir = classes_dir
         self.include_hidden_files = include_hidden_files
@@ -19,7 +19,10 @@ class SplitDatasetManager(object):
             if not f.startswith('.'):
                 yield f
 
-    def prepare(self):
+    def prepare(self,
+                train_ratio=0.80,
+                val_ratio=0.15,
+                test_ratio=0.05):
         for cls in self.classes_dir:
             print(f'Current class: {cls}')
             os.makedirs(os.path.join(self.root_dir, 'train/', cls), exist_ok=True)
@@ -32,9 +35,9 @@ class SplitDatasetManager(object):
             all_file_names = list(self.listdir_nohidden(src_folder))
             np.random.shuffle(all_file_names)
             train_file_names, val_file_names, test_file_names = np.split(np.array(all_file_names),
-                                                                         [int(len(all_file_names) * self.train_ratio),
+                                                                         [int(len(all_file_names) * train_ratio),
                                                                           int(len(all_file_names) * (
-                                                                                  self.train_ratio + self.val_ratio))])
+                                                                                  train_ratio + val_ratio))])
 
             train_file_names = [os.path.join(src_folder, name) for name in train_file_names.tolist()]
             val_file_names = [os.path.join(src_folder, name) for name in val_file_names.tolist()]
