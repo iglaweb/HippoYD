@@ -70,6 +70,25 @@ def predict_image(model, input_img, grayscale: bool):
     )
 
 
+def show_pred_actual_lables(fig_dst, predictions, test_labels, test_images, class_names, class_indices):
+    # Plot the first X test images, their predicted labels, and the true labels.
+    # Color correct predictions in blue and incorrect predictions in red.
+    num_rows = 10
+    num_cols = 3
+    num_images = num_rows * num_cols
+    plt.figure(figsize=(2 * 2 * num_cols, 2 * num_rows))
+    for i in range(num_images):
+        idx = random.choice(range(len(predictions)))
+        plt.subplot(num_rows, 2 * num_cols, 2 * i + 1)
+        is_correct_pred = plot_image(idx, predictions[idx], test_labels, test_images, class_names,
+                                     class_indices)
+        plt.subplot(num_rows, 2 * num_cols, 2 * i + 2)
+        plot_value_array(predictions[idx], is_correct_pred)
+    plt.tight_layout()
+    plt.savefig(fig_dst)
+    plt.show()
+
+
 def plot_image(i, predictions_item, true_label_id, images, class_names, class_indices) -> bool:
     true_label_id, img = true_label_id[i], images[i]
     plt.grid(False)
