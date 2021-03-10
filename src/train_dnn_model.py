@@ -61,11 +61,11 @@ class DNNTrainer(object):
         self.epochs = epochs
         self.batch_size = batch_size
         self.learning_rate = learning_rate
-        self.early_stop = False
-        self.train_model = ModelType.LITE  # FULL, LITE, MOBILENET_V2
-        self.include_optimizer = False
-        self.is_prune_model = False
-        self.evaluate_tflite = False
+        self.early_stop = early_stop
+        self.train_model = train_model  # FULL, LITE, MOBILENET_V2
+        self.include_optimizer = include_optimizer
+        self.is_prune_model = is_prune_model
+        self.evaluate_tflite = evaluate_tflite
 
         self.model_name_prefix = model_name_prefix
 
@@ -202,7 +202,7 @@ class DNNTrainer(object):
         )
 
         print('Preview 20 images from train generator')
-        train_utils.plot_data_generator_first_20(train_generator, self.grayscale)
+        train_utils.plot_data_generator_first_20(train_generator)
 
         class_indices = train_generator.class_indices
         print(class_indices)  # {'closed': 0, 'opened': 1}
@@ -222,15 +222,6 @@ class DNNTrainer(object):
         print('Values: ' + ','.join(map(str, list(valid_generator.class_indices.values()))))
         print('First 10 images: ' + ','.join(map(str, valid_generator.filenames[:10])))
 
-        # print('Create Test Data Generator')
-        # test_generator = train_datagen.flow_from_directory(
-        #     MOUTH_PREPARE_TEST_FOLDER,
-        #     class_mode='binary',
-        #     color_mode='grayscale' if self.grayscale else 'rgb',
-        #     batch_size=BATCH_SIZE,
-        #     shuffle=False,  # no shuffle as we use it to predict on test data
-        #     target_size=image_size  # All images will be resized to IMAGE_SHAPE
-        # )
         number_of_examples = len(valid_generator.filenames)
         number_of_generator_calls = math.ceil(number_of_examples / (1.0 * BATCH_SIZE))
         # 1.0 above is to skip integer division
@@ -247,7 +238,6 @@ class DNNTrainer(object):
 
         print('Create model')
         # Create a basic model instance
-
         if TRAIN_MODEL == ModelType.MOBILENET_V2:
             model = train_utils.create_compiled_model_mobilenet2(self.input_shape, LEARNING_RATE)
         elif TRAIN_MODEL == ModelType.LITE:

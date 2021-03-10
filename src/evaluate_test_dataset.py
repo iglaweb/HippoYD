@@ -3,7 +3,6 @@ import shutil
 import sys
 
 # for Jupyter paths support, include other modules
-
 module_path = os.path.abspath(os.path.join('../..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
@@ -17,7 +16,6 @@ import numpy as np
 import tensorflow as tf
 from keras_preprocessing.image import ImageDataGenerator
 from tensorflow import keras
-from tensorflow.python.client import device_lib
 
 from yawn_train.src import train_utils
 from yawn_train.src.model_config import MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS, \
@@ -27,27 +25,20 @@ from yawn_train.src.model_config import MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 
-# find out which devices your operations and tensors are assigned to
-print(device_lib.list_local_devices())
-gpus = tf.config.experimental.list_physical_devices('GPU')
-for gpu in gpus:
-    print("Name:", gpu.name, "  Type:", gpu.device_type)
-
 print('Tensorflow: ' + tf.__version__)
 print('Keras: ' + tf.keras.__version__)
 
-MOUTH_PREPARE_TEST_FOLDER = '/Users/igla/Downloads/mouth_state_new10_full/test'
-
-# Hyperparameters
-EPOCH = 1
+MODEL_PATH = '/Users/igla/Downloads/out_epoch_80_lite-5/yawn_model_80.h5'  # '/Users/igla/Downloads/out_epoch_80_lite-3/yawn_model_80.h5'
+MOUTH_PREPARE_TEST_FOLDER = '/Users/igla/Downloads/Kaggle Drowsiness_dataset/yawn_with_faces'  # '/Users/igla/Downloads/mouth_state_new10_full/test'
+THRESHOLD_CONF = 0.4
 BATCH_SIZE = 32
 
 TRAIN_MODEL = ModelType.LITE  # FULL, LITE, MOBILENET_V2
 MODEL_PREFIX = TRAIN_MODEL.value
-OUTPUT_FOLDER = f"./out_evaulate_{EPOCH}_{MODEL_PREFIX}"
+OUTPUT_FOLDER = f"./out_evaluation_kaggle_faces"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-PATH_INCORRECT_PREDS = '/Users/igla/Downloads/YAWN_DS_DATASET/output/'
+PATH_INCORRECT_PREDS = '/Users/igla/Downloads/YAWN_DS_DATASET/output_kaggle/'
 
 PLOT_CONF_MATRIX_NORMALIZED = os.path.join(OUTPUT_FOLDER, 'plot_conf_matrix_normalize.png')
 PLOT_CONF_MATRIX = os.path.join(OUTPUT_FOLDER, 'plot_conf_matrix.png')
@@ -61,15 +52,7 @@ PLOT_IMAGE_PREVIEW = os.path.join(OUTPUT_FOLDER, 'plot_img_overview.png')
 # All images will be rescaled by 1./255
 print('Create Train Image Data Generator')
 # construct the image generator for data augmentation
-train_datagen = ImageDataGenerator(
-    # Values less than 1.0 darken the image, values larger than 1.0 brighten the image, where 1.0 has no effect on brightness.
-    brightness_range=[0.6, 1.2],
-    rotation_range=35,  # randomly rotate image
-    rescale=1. / 255,
-    shear_range=0.1,
-    horizontal_flip=True,
-    fill_mode="nearest"  # zoom_range will corrupt img
-)
+train_datagen = ImageDataGenerator(rescale=1. / 255)
 
 print('Create Test Data Generator')
 test_generator = train_datagen.flow_from_directory(
@@ -77,12 +60,14 @@ test_generator = train_datagen.flow_from_directory(
     class_mode='binary',
     color_mode='grayscale',
     batch_size=BATCH_SIZE,
+    # don't shuffle
     shuffle=False,  # no shuffle as we use it to predict on test data
+    # use same size as in training
     target_size=IMAGE_PAIR_SIZE  # All images will be resized to IMAGE_SHAPE
 )
 
 print('Preview 20 images from test generator')
-train_utils.plot_data_generator_first_20(test_generator, True)
+train_utils.plot_data_generator_first_20(test_generator)
 
 class_indices = test_generator.class_indices
 print(class_indices)  # {'closed': 0, 'opened': 1}
@@ -110,13 +95,16 @@ test_images[:] = [f'{MOUTH_PREPARE_TEST_FOLDER}/{x}' for x in test_images]
 # Create a basic model instance
 input_shape = (MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT, COLOR_CHANNELS)
 
-model = keras.models.load_model('/Users/igla/Downloads/out_epoch_80_lite-3/yawn_model_80.h5')
+model = keras.models.load_model(MODEL_PATH)
 # Check its architecture
 model.summary()
 
 STEP_SIZE_TEST = test_generator.n // test_generator.batch_size
 test_generator.reset()
 predictions = model.predict(test_generator, verbose=1)
+
+y_pred = predictions > 0.4
+cnt = np.count_nonzero(y_pred)
 
 train_utils.plot_roc(
     f"{OUTPUT_FOLDER}/plot_roc.png",
@@ -141,7 +129,8 @@ for class_name in class_names:  # opened, closed
 def evaluate_image(i, predictions_item, true_label_id, images, class_indices) -> (bool, bool, float):
     true_label_id, img = true_label_id[i], images[i]
     predicted_confidence = np.max(predictions_item)
-    is_mouth_opened = True if predicted_confidence >= 0.4 else False
+    predicted_confidence = round(predicted_confidence, 2)
+    is_mouth_opened = True if predicted_confidence >= THRESHOLD_CONF else False
     # classes taken from input data
     predicted_label_id = class_indices['opened' if is_mouth_opened else 'closed']
     is_correct_prediction = predicted_label_id == true_label_id
@@ -151,7 +140,7 @@ def evaluate_image(i, predictions_item, true_label_id, images, class_indices) ->
 actual = np.array(test_labels)
 predicted = []
 for idx in range(len(predictions)):
-    predicted.append(1 if (predictions[idx] >= 0.4) else 0)
+    predicted.append(1 if (predictions[idx] >= THRESHOLD_CONF) else 0)
 predicted = np.array(predicted)
 
 from sklearn.metrics import accuracy_score

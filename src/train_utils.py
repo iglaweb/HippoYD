@@ -31,13 +31,12 @@ def gray_to_rgb(img):
     return np.repeat(img, 3, 2)
 
 
-def plot_data_generator_first_20(train_generator, grayscale: bool):
+def plot_data_generator_first_20(train_generator):
     img_list = []
-    for i in range(20):
-        batch = next(train_generator)
-        img = batch[0][0]
-        test_image = gray_to_rgb(img) if grayscale else img
-        img_list.append(test_image)
+    for file in train_generator.filepaths[:20]:
+        img = tf.keras.preprocessing.image.load_img(file)
+        img_list.append(img)
+
     columns = 4
     rows = 5
     fig = plt.gcf()
@@ -45,8 +44,7 @@ def plot_data_generator_first_20(train_generator, grayscale: bool):
     for i in range(1, columns * rows + 1):
         plt.subplot(rows, columns, i)
         img = img_list[i - 1]
-        image = (img * 255).astype(np.uint8)
-        plt.imshow(image)
+        plt.imshow(img)
     plt.show()
 
 
