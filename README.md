@@ -38,6 +38,35 @@ python split_data_into_datasets.py
 python train_yawn.py
 ```
 
+## Model evaluation
+<table>
+	<tbody>
+		<tr>
+         <th>Dataset</th>
+         <th>AC</th>
+         <th>PR</th>
+         <th>RC</th>
+         <th>F1</th>
+		</tr>
+      <tr>
+			<td><a href='https://www.kaggle.com/dheerajperumandla/drowsiness-dataset'>Kaggle</a</td>
+			<td>0.932</td>
+         <td>0.992</td>
+         <td>0.871</td>
+         <td>0.927</td>
+		</tr>
+      <tr>
+			<td><a href='https://ieee-dataport.org/open-access/yawdd-yawning-detection-dataset#files'>Test split (5%)</a></td>
+			<td>0.988</td>
+         <td>0.960</td>
+         <td>0.975</td>
+         <td>0.967</td>
+		</tr>
+	</tbody>
+</table>
+*AC - accuracy, PR - precision, RC - recall.
+
+
 ## Available pretrained models [[full](out_epoch_80_full/), [lite](out_epoch_80_lite/)] and demos
 
 <table>
