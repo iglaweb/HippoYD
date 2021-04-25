@@ -177,6 +177,19 @@ python train_yawn.py
          <td>9 ms</td>
          <td>2.4</td>
 		</tr>
+      <tr>
+			<td rowspan="2"><a href='https://www.gsmarena.com/samsung_galaxy_s20+-10080.php'>Samsung Galaxy S20+</a></td>
+         <td>GPU/CPU 3 Threads</td>
+			<td>TFLite (Floating)</td>
+         <td>2 ms</td>
+         <td>2.4</td>
+		</tr>
+      <tr>
+         <td>CPU 3 Threads</td>
+			<td>TFLite (Quantized)</td>
+         <td>2 ms</td>
+         <td>2.4</td>
+		</tr>
 	</tbody>
 </table>
 
