@@ -29,6 +29,9 @@ class ModelType(Enum):
     FULL = 'full'
     LITE = 'lite'
     MOBILENET_V2 = 'mobilenetv2'
+    ALEXNET = 'alexnet'
+    FLOWER = 'flower'
+    VGG16 = 'vgg16'
 
 
 class DNNTrainer(object):
@@ -40,7 +43,7 @@ class DNNTrainer(object):
                  use_gpu: bool = True,
                  epochs: int = 1,
                  batch_size: int = 64,
-                 learning_rate: float = 0.001,
+                 learning_rate_opt=keras.optimizers.Adam(lr=0.001),
                  early_stop: bool = False,
                  train_model: ModelType = ModelType.LITE,  # FULL, LITE, MOBILENET_V2
                  include_optimizer: bool = False,
@@ -60,7 +63,7 @@ class DNNTrainer(object):
         self.use_gpu = use_gpu
         self.epochs = epochs
         self.batch_size = batch_size
-        self.learning_rate = learning_rate
+        self.learning_rate_opt = learning_rate_opt
         self.early_stop = early_stop
         self.train_model = train_model  # FULL, LITE, MOBILENET_V2
         self.include_optimizer = include_optimizer
@@ -127,7 +130,7 @@ class DNNTrainer(object):
         # Hyperparameters
         EPOCH = self.epochs
         BATCH_SIZE = self.batch_size
-        LEARNING_RATE = self.learning_rate
+        LEARNING_RATE_OPT = self.learning_rate_opt
 
         EARLY_STOP = self.early_stop
         TRAIN_MODEL = self.train_model  # FULL, LITE, MOBILENET_V2
@@ -239,13 +242,24 @@ class DNNTrainer(object):
         print('Create model')
         # Create a basic model instance
         if TRAIN_MODEL == ModelType.MOBILENET_V2:
-            model = train_utils.create_compiled_model_mobilenet2(self.input_shape, LEARNING_RATE)
+            model = train_utils.create_compiled_model_mobilenet2(self.input_shape, LEARNING_RATE_OPT)
         elif TRAIN_MODEL == ModelType.LITE:
-            model = train_utils.create_compiled_model_lite(self.input_shape, LEARNING_RATE)
+            model = train_utils.create_compiled_model_lite(self.input_shape, LEARNING_RATE_OPT)
+        elif TRAIN_MODEL == ModelType.ALEXNET:
+            model = train_utils.create_alexnet(self.input_shape, LEARNING_RATE_OPT)
+        elif TRAIN_MODEL == ModelType.FLOWER:
+            model = train_utils.create_flowernet(self.input_shape, LEARNING_RATE_OPT)
+        elif TRAIN_MODEL == ModelType.VGG16:
+            model = train_utils.create_compiled_model_vgg16(self.input_shape, LEARNING_RATE_OPT)
         else:
-            model = train_utils.create_compiled_model(self.input_shape, LEARNING_RATE)
+            model = train_utils.create_compiled_model(self.input_shape, LEARNING_RATE_OPT)
 
-        keras.utils.plot_model(model, show_shapes=True)
+        try:
+            from keras_visualizer import visualizer
+            visualizer(model, format='png', view=True)
+        except Exception as e:
+            print(e)
+        keras.utils.plot_model(model, to_file='model_visualization.png', show_shapes=True)
         # Display the model's architecture
         model.summary()
 

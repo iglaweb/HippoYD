@@ -1,6 +1,8 @@
 import os
 import sys
 
+from tensorflow import keras
+
 from yawn_train.src.train_dnn_model import DNNTrainer, ModelType
 
 # for Jupyter paths support, include other modules
@@ -59,13 +61,13 @@ MAX_IMAGE_WIDTH = 100
 IMAGE_PAIR_SIZE = (MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT)
 dnn_trainer = DNNTrainer(
     img_size=IMAGE_PAIR_SIZE,
-    grayscale=True,
+    grayscale=False,
     data_folder='./../mouth_state',
     use_gpu=True,
     epochs=1,
     batch_size=32,
-    learning_rate=0.001,
-    train_model=ModelType.LITE,
+    learning_rate_opt=keras.optimizers.SGD(lr=0.0001, momentum=0.9),
+    train_model=ModelType.VGG16,
     include_optimizer=False,
     is_prune_model=False,
     model_name_prefix='yawn'

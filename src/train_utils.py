@@ -229,7 +229,7 @@ class printlearningrate(tf.keras.callbacks.Callback):
 
 
 # Taken from https://github.com/AvinashNath2/Image-Classification-using-Keras
-def create_compiled_model_lite(input_shape, learning_rate) -> keras.Model:
+def create_compiled_model_lite(input_shape, opt=keras.optimizers.Adam(lr=0.001)) -> keras.Model:
     model = keras.Sequential()
     model.add(layers.Convolution2D(32, (3, 3), input_shape=input_shape))
     model.add(layers.Activation('relu'))
@@ -251,27 +251,123 @@ def create_compiled_model_lite(input_shape, learning_rate) -> keras.Model:
     model.add(layers.Activation('sigmoid'))
 
     # compile model
-    opt = keras.optimizers.Adam(lr=learning_rate)
     model.compile(optimizer=opt, loss='binary_crossentropy',
                   metrics=['accuracy', f1_m, precision_m, recall_m])
     return model
 
 
-def create_compiled_model_mobilenet2(input_shape, learning_rate) -> keras.Model:
+def create_compiled_model_mobilenet2(input_shape, opt=keras.optimizers.Adam(lr=0.001)) -> keras.Model:
     model = keras.Sequential()
     model.add(keras.applications.MobileNetV2(
         include_top=False, weights="imagenet", input_shape=input_shape))
     model.add(tf.keras.layers.GlobalAveragePooling2D())
     model.add(layers.Dense(1, activation='sigmoid'))
     model.layers[0].trainable = False  # Freeze the convolutional base
+
     # compile model
-    opt = keras.optimizers.Adam(lr=learning_rate)
     model.compile(optimizer=opt, loss='binary_crossentropy',
                   metrics=['accuracy', f1_m, precision_m, recall_m])
     return model
 
 
-def create_compiled_model(input_shape, learning_rate) -> keras.Model:
+def create_compiled_model_vgg16(input_shape, opt=keras.optimizers.Adam(lr=0.001)) -> keras.Model:
+    vgg16_base = tf.keras.applications.VGG16(input_shape=input_shape, include_top=False, weights='imagenet')
+
+    model = keras.Sequential()
+    model.add(vgg16_base)
+    model.add(tf.keras.layers.GlobalAveragePooling2D())
+    model.add(layers.Dense(1, activation='sigmoid'))
+    model.layers[0].trainable = False  # Freeze the convolutional base
+
+    # compile model
+    model.compile(optimizer=opt, loss='binary_crossentropy',
+                  metrics=['accuracy', f1_m, precision_m, recall_m])
+    return model
+
+
+def create_flowernet(input_shape, opt=keras.optimizers.Adam(lr=0.001)) -> keras.Model:
+    model = tf.keras.models.Sequential()
+    model.add(layers.Conv2D(16, (3, 3),
+                            input_shape=input_shape,  # dimensions = 100X100, color channel = B&W
+                            activation='relu'))
+    model.add(layers.MaxPooling2D(2, 2))
+    model.add(layers.Conv2D(32, (3, 3), activation='relu'))
+    model.add(layers.MaxPooling2D(2, 2))
+    model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+    model.add(layers.MaxPooling2D(2, 2))
+    model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+    model.add(layers.MaxPooling2D(2, 2))
+    model.add(layers.Flatten())
+    model.add(layers.Dense(512, activation='relu'))
+    model.add(layers.Dense(1, activation='sigmoid'))
+
+    # compile model
+    model.compile(optimizer=opt, loss='binary_crossentropy',
+                  metrics=['accuracy', f1_m, precision_m, recall_m])
+    return model
+
+
+def create_alexnet(input_shape, opt=keras.optimizers.Adam(lr=0.001)) -> keras.Model:
+    model_alexnet = keras.Sequential()
+    # 1st Convolutional Layer
+    model_alexnet.add(layers.Conv2D(32, (3, 3),
+                                    input_shape=input_shape,  # dimensions = 100X100, color channel = B&W
+                                    padding='same',
+                                    activation='relu'))
+    # pooling
+    model_alexnet.add(layers.MaxPooling2D(pool_size=(2, 2), padding='same'))
+    model_alexnet.add(layers.BatchNormalization())
+    # 2nd Convolutional Layer
+    model_alexnet.add(layers.Conv2D(64, (3, 3),
+                                    padding='same',
+                                    activation='relu'))
+    # pooling
+    model_alexnet.add(layers.MaxPooling2D(pool_size=(2, 2), padding='same'))
+    model_alexnet.add(layers.BatchNormalization())
+
+    # 3rd Convolutional Layer
+    model_alexnet.add(layers.Conv2D(64, (3, 3),
+                                    padding='same',
+                                    activation='relu'))
+    model_alexnet.add(layers.BatchNormalization())
+    # 4th Convolutional Layer
+    model_alexnet.add(layers.Conv2D(128, (3, 3),
+                                    padding='same',
+                                    activation='relu'))
+    model_alexnet.add(layers.BatchNormalization())
+    # 5th Convolutional Layer
+    model_alexnet.add(layers.Conv2D(128, (3, 3),
+                                    padding='same',
+                                    activation='relu'))
+    # pooling
+    model_alexnet.add(layers.MaxPooling2D(pool_size=(3, 3), padding='same'))
+    model_alexnet.add(layers.BatchNormalization())
+    # Flatten
+    model_alexnet.add(layers.Flatten())
+    # 1st Dense Layer
+    model_alexnet.add(layers.Dense(128,
+                                   activation='relu', kernel_initializer='glorot_uniform'))
+    model_alexnet.add(layers.Dropout(0.10))
+    model_alexnet.add(layers.BatchNormalization())
+    # 2nd Dense Layer
+    model_alexnet.add(layers.Dense(256,
+                                   activation='relu', kernel_initializer='glorot_uniform'))
+    model_alexnet.add(layers.Dropout(0.20))
+    model_alexnet.add(layers.BatchNormalization())
+    # # 3rd Dense Layer
+    model_alexnet.add(layers.Dense(512,
+                                   activation='relu', kernel_initializer='glorot_uniform'))
+    model_alexnet.add(layers.Dropout(0.2))
+    model_alexnet.add(layers.BatchNormalization())
+    # output layer
+    model_alexnet.add(layers.Dense(1, activation='sigmoid'))
+    # Compile
+    model_alexnet.compile(loss='binary_crossentropy', optimizer=opt,
+                          metrics=['accuracy'])
+    return model_alexnet
+
+
+def create_compiled_model(input_shape, opt=keras.optimizers.Adam(lr=0.001)) -> keras.Model:
     # Note that when using the delayed-build pattern (no input shape specified),
     # the model gets built the first time you call `fit`, `eval`, or `predict`,
     # or the first time you call the model on some input data.
@@ -291,7 +387,6 @@ def create_compiled_model(input_shape, learning_rate) -> keras.Model:
     model.add(layers.Dropout(0.5))  # Fully connected layer
     model.add(layers.Dense(1, activation='sigmoid'))  # Fully connected layer
     # compile model
-    opt = keras.optimizers.Adam(lr=learning_rate)
     model.compile(optimizer=opt, loss='binary_crossentropy',
                   metrics=['accuracy', f1_m, precision_m, recall_m])
     return model
